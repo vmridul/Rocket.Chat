@@ -7,6 +7,7 @@ import MainLayout from '../views/root/MainLayout';
 
 const IndexRoute = lazy(() => import('../views/root/IndexRoute'));
 const HomePage = lazy(() => import('../views/home/HomePage'));
+const ActivityCenterPage = lazy(() => import('../views/activityCenter/ActivityCenterPage'));
 const DirectoryPage = lazy(() => import('../views/directory'));
 const OmnichannelDirectoryRouter = lazy(() => import('../views/omnichannel/directory/OmnichannelDirectoryRouter'));
 const OmnichannelQueueList = lazy(() => import('../views/omnichannel/queueList'));
@@ -46,6 +47,10 @@ declare module '@rocket.chat/ui-contexts' {
 		'directory': {
 			pathname: `/directory${`/${'users' | 'channels' | 'teams' | 'external'}` | ''}`;
 			pattern: '/directory/:tab?';
+		};
+		'activity-center': {
+			pathname: `/activity-center${`/${'mentions' | 'starred'}` | ''}`;
+			pattern: '/activity-center/:tab?';
 		};
 		'omnichannel-directory': {
 			pathname: `/omnichannel-directory${`/${string}` | ''}${`/${string}` | ''}${`/${string}` | ''}`;
@@ -146,6 +151,15 @@ router.defineRoutes([
 		element: appLayout.wrap(
 			<MainLayout>
 				<DirectoryPage />
+			</MainLayout>,
+		),
+	},
+	{
+		path: '/activity-center/:tab?',
+		id: 'activity-center',
+		element: appLayout.wrap(
+			<MainLayout>
+				<ActivityCenterPage />
 			</MainLayout>,
 		),
 	},

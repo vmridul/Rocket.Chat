@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import NavBarItemCreateNew from './NavBarItemCreateNew';
 import NavBarItemDirectoryPage from './NavBarItemDirectoryPage';
+import NavBarItemActivityCenter from './NavBarItemActivityCenter';
 import NavBarItemHomePage from './NavBarItemHomePage';
 import NavBarItemMarketPlaceMenu from './NavBarItemMarketPlaceMenu';
 import NavBarItemSort from './NavBarItemSort';
@@ -23,6 +24,7 @@ const NavBarPagesGroup = () => {
 			{!isTablet && (
 				<>
 					<NavBarItemHomePage title={t('Home')} />
+					<NavBarItemActivityCenter title={t('Activity Center')} />
 					<NavBarItemDirectoryPage title={t('Directory')} />
 				</>
 			)}
