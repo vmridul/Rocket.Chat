@@ -4,6 +4,7 @@ import { useRouter, useRouteParameter } from '@rocket.chat/ui-contexts';
 import type { ReactElement } from 'react';
 import { useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { initializeNotificationService, markAllNotificationsAsSeen } from './services/notificationService';
 
 import MentionsTab from './tabs/mentions/MentionsTab';
 import StarredTab from './tabs/starred/StarredTab';
@@ -15,10 +16,17 @@ const ActivityCenterPage = (): ReactElement => {
 	const tab = useRouteParameter('tab') as TabName | undefined;
 	const router = useRouter();
 
+	// Initialize global notification service
+	useEffect(() => {
+		initializeNotificationService();
+	}, []);
+
 	useEffect(
 		() =>
 			router.subscribeToRouteChange(() => {
 				if (router.getRouteName() !== 'activity-center') {
+					// User is leaving Activity Center - mark all unseen notifications as seen
+					markAllNotificationsAsSeen();
 					return;
 				}
 
@@ -38,7 +46,7 @@ const ActivityCenterPage = (): ReactElement => {
 			<PageHeader title={t('Activity Center')} />
 			<Tabs flexShrink={0}>
 				<Tabs.Item selected={tab === 'mentions'} onClick={handleTabClick('mentions')}>
-					{t('Mentions')}
+					{t('Notifications')}
 				</Tabs.Item>
 				<Tabs.Item selected={tab === 'starred'} onClick={handleTabClick('starred')}>
 					{t('Starred Messages')}

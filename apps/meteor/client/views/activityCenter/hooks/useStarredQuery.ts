@@ -10,7 +10,7 @@ export type StarredMessage = IMessage & {
 	roomType: RoomType | undefined;
 };
 
-export const useStarredMessagesQuery = () => {
+export const useStarredQuery = () => {
 	const { roomList } = useRoomList({});
 	const getStarred = useEndpoint('GET', '/v1/chat.getStarredMessages');
 
