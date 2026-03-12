@@ -439,6 +439,10 @@ export class ListenersModule {
 			notifications.notifyUserInThisInstance(uid, 'calendar', data);
 		});
 
+		service.onEvent('notify.activity-notification', (uid, data): void => {
+			notifications.notifyUserInThisInstance(uid, 'activity-notification', data);
+		});
+
 		service.onEvent('notify.importedMessages', ({ roomIds }): void => {
 			roomIds.forEach((rid) => {
 				// couldnt get TS happy by providing no data, so had to provide null

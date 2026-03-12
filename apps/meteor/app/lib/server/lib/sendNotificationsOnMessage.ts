@@ -13,6 +13,7 @@ import moment from 'moment';
 import type { RootFilterOperators } from 'mongodb';
 
 import { getMentions } from './notifyUsersOnMessage';
+import { createActivityNotification } from './activityNotifications';
 import { callbacks } from '../../../../server/lib/callbacks';
 import { roomCoordinator } from '../../../../server/lib/rooms/roomCoordinator';
 import { hasPermissionAsync } from '../../../authorization/server/functions/hasPermission';
@@ -357,21 +358,39 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 
 	const subscriptions = await Subscriptions.col.aggregate<SubscriptionAggregation>([{ $match: query }, lookup, filter, project]).toArray();
 
-	subscriptions.forEach(
-		(subscription) =>
-			void sendNotification({
-				subscription,
-				sender,
-				hasMentionToAll,
-				hasMentionToHere,
+	subscriptions.forEach((subscription) => {
+		const hasMentionToUser = mentionIds.includes(subscription.u._id);
+		const hasReplyToThread = usersInThread?.includes(subscription.u._id);
+
+		if (
+			subscription.u._id !== sender._id &&
+			!(!hasMentionToUser && !hasReplyToThread && subscription.muteGroupMentions && (hasMentionToAll || hasMentionToHere))
+		) {
+			void createActivityNotification({
+				uid: subscription.u._id,
 				message,
-				notificationMessage,
 				room,
-				mentionIds,
-				disableAllMessageNotifications,
-				hasReplyToThread: usersInThread?.includes(subscription.u._id),
-			}),
-	);
+				roomName: subscription.name,
+				sender,
+				text: notificationMessage,
+				hasMentionToUser,
+				hasReplyToThread,
+			});
+		}
+
+		void sendNotification({
+			subscription,
+			sender,
+			hasMentionToAll,
+			hasMentionToHere,
+			message,
+			notificationMessage,
+			room,
+			mentionIds,
+			disableAllMessageNotifications,
+			hasReplyToThread,
+		});
+	});
 
 	return {
 		sender,

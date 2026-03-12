@@ -20,7 +20,7 @@ import { GenericMenu } from '@rocket.chat/ui-client';
 import { useRouter, useToastMessageDispatch } from '@rocket.chat/ui-contexts';
 import { useTranslation } from 'react-i18next';
 
-import { UserAvatar } from '@rocket.chat/ui-avatar';
+import { RoomAvatar, UserAvatar } from '@rocket.chat/ui-avatar';
 import { useUserDisplayName } from '@rocket.chat/ui-client';
 
 import { useFormatTime } from '/client/hooks/useFormatTime';
@@ -109,6 +109,12 @@ const StarredItem = ({ message, onUnstar }: Props): ReactElement => {
 					<MessageStatusIndicator>
 						<MessageStatusIndicatorItem name='star-filled' title={t('Message_has_been_starred')} />
 					</MessageStatusIndicator>
+					<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
+						<RoomAvatar size='x16' room={{ _id: message.rid, type: message.roomType || 'c' }} />
+						<Box is='span' fontScale='c1' mis={4}>
+							{message.roomType === 'd' ? message.roomName || t('Direct_Messages') : `#${message.roomName || ''}`}
+						</Box>
+					</Box>
 				</MessageHeader>
 
 				<MessageBody>

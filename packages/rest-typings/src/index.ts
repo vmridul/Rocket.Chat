@@ -43,6 +43,7 @@ import type { SubscriptionsEndpoints } from './v1/subscriptionsEndpoints';
 import type { TeamsEndpoints } from './v1/teams';
 import type { UsersEndpoints } from './v1/users';
 import type { VideoConferenceEndpoints } from './v1/videoConference';
+import type { ActivityNotificationsEndpoints } from './v1/activityNotifications';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export interface Endpoints
@@ -90,6 +91,7 @@ export interface Endpoints
 		AuthEndpoints,
 		ImportEndpoints,
 		ServerEventsEndpoints,
+		ActivityNotificationsEndpoints,
 		DefaultEndpoints {}
 
 type OperationsByPathPatternAndMethod<
@@ -255,6 +257,7 @@ export * from './v1/chat';
 export * from './v1/auth';
 export * from './v1/cloud';
 export * from './v1/banners';
+export * from './v1/activityNotifications';
 export * from './default';
 
 // Export the ajv instance for use in other packages

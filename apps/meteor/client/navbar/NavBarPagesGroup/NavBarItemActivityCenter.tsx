@@ -3,39 +3,23 @@ import { useEffectEvent } from '@rocket.chat/fuselage-hooks';
 import { useRouter, useCurrentRoutePath } from '@rocket.chat/ui-contexts';
 import type { HTMLAttributes } from 'react';
 import { css } from '@rocket.chat/css-in-js';
-import {
-	initializeNotificationService,
-	getUnreadNotificationCount,
-	subscribeToNotifications,
-} from '../../views/activityCenter/services/notificationService';
-import { useState, useEffect } from 'react';
+import { useActivityNotifications } from '../../views/activityCenter/hooks/useActivityNotifications';
 
 type NavBarItemActivityCenterProps = Omit<HTMLAttributes<HTMLElement>, 'is'>;
 
 const NavBarItemActivityCenter = (props: NavBarItemActivityCenterProps) => {
 	const router = useRouter();
-	const [unreadCount, setUnreadCount] = useState(0);
+	const { getUnreadCount } = useActivityNotifications();
+	const unreadCount = getUnreadCount();
 
 	const handleActivityCenter = useEffectEvent(() => {
 		router.navigate('/activity-center');
 	});
 	const currentRoute = useCurrentRoutePath();
 
-	useEffect(() => {
-		// Initialize the notification service
-		initializeNotificationService();
-
-		// Subscribe to notification updates
-		const unsubscribe = subscribeToNotifications(() => {
-			setUnreadCount(getUnreadNotificationCount());
-		});
-
-		return unsubscribe;
-	}, []);
-
 	return (
 		<Box position='relative'>
-			<NavBarItem {...props} icon='bell' onClick={handleActivityCenter} pressed={currentRoute?.includes('/activity-center')} />
+			<NavBarItem {...props} icon='list-alt' onClick={handleActivityCenter} pressed={currentRoute?.includes('/activity-center')} />
 			{unreadCount > 0 && (
 				<Box
 					position='absolute'

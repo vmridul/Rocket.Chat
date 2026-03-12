@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react';
-import MentionsList from './MentionsList/MentionsList';
+import MentionsMessagesList from './MentionsMessagesList';
 
 const MentionsTab = (): ReactElement => {
-	return <MentionsList />;
+	return <MentionsMessagesList />;
 };
 
 export default MentionsTab;

@@ -4,36 +4,29 @@ import { useRouter, useRouteParameter } from '@rocket.chat/ui-contexts';
 import type { ReactElement } from 'react';
 import { useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { initializeNotificationService, markAllNotificationsAsSeen } from './services/notificationService';
 
+import AllActivityTab from './tabs/allActivity/AllActivityTab';
 import MentionsTab from './tabs/mentions/MentionsTab';
 import StarredTab from './tabs/starred/StarredTab';
 
-type TabName = 'mentions' | 'starred';
+type TabName = 'all-activity' | 'notifications' | 'starred';
 
 const ActivityCenterPage = (): ReactElement => {
 	const { t } = useTranslation();
 	const tab = useRouteParameter('tab') as TabName | undefined;
 	const router = useRouter();
 
-	// Initialize global notification service
-	useEffect(() => {
-		initializeNotificationService();
-	}, []);
-
 	useEffect(
 		() =>
 			router.subscribeToRouteChange(() => {
 				if (router.getRouteName() !== 'activity-center') {
-					// User is leaving Activity Center - mark all unseen notifications as seen
-					markAllNotificationsAsSeen();
 					return;
 				}
 
 				const { tab } = router.getRouteParameters();
 
 				if (!tab) {
-					router.navigate('/activity-center/mentions', { replace: true });
+					router.navigate('/activity-center/all-activity', { replace: true });
 				}
 			}),
 		[router],
@@ -45,15 +38,19 @@ const ActivityCenterPage = (): ReactElement => {
 		<Page background='room'>
 			<PageHeader title={t('Activity Center')} />
 			<Tabs flexShrink={0}>
-				<Tabs.Item selected={tab === 'mentions'} onClick={handleTabClick('mentions')}>
-					{t('Notifications')}
+				<Tabs.Item selected={tab === 'all-activity'} onClick={handleTabClick('all-activity')}>
+					{t('All Activity')}
+				</Tabs.Item>
+				<Tabs.Item selected={tab === 'notifications'} onClick={handleTabClick('notifications')}>
+					{t('Mentions')}
 				</Tabs.Item>
 				<Tabs.Item selected={tab === 'starred'} onClick={handleTabClick('starred')}>
 					{t('Starred Messages')}
 				</Tabs.Item>
 			</Tabs>
 			<PageContent paddingInline={0} overflow='hidden' height='100%'>
-				{tab === 'mentions' && <MentionsTab />}
+				{tab === 'all-activity' && <AllActivityTab />}
+				{tab === 'notifications' && <MentionsTab />}
 				{tab === 'starred' && <StarredTab />}
 			</PageContent>
 		</Page>

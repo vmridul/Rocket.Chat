@@ -49,7 +49,7 @@ declare module '@rocket.chat/ui-contexts' {
 			pattern: '/directory/:tab?';
 		};
 		'activity-center': {
-			pathname: `/activity-center${`/${'mentions' | 'starred'}` | ''}`;
+			pathname: `/activity-center${`/${'all-activity' | 'notifications' | 'starred'}` | ''}`;
 			pattern: '/activity-center/:tab?';
 		};
 		'omnichannel-directory': {

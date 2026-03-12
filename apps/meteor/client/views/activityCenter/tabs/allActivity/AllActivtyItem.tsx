@@ -15,8 +15,9 @@ import {
 } from '@rocket.chat/fuselage';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from '@rocket.chat/ui-contexts';
-import { UserAvatar } from '@rocket.chat/ui-avatar';
+import { RoomAvatar, UserAvatar } from '@rocket.chat/ui-avatar';
 import { useUserDisplayName } from '@rocket.chat/ui-client';
+import { Meteor } from 'meteor/meteor';
 import { useTranslation } from 'react-i18next';
 import { useFormatTime } from '/client/hooks/useFormatTime';
 import { useFormatDateAndTime } from '/client/hooks/useFormatDateAndTime';
@@ -57,6 +58,10 @@ const MentionItem = ({ notification, sequential, onClear }: MentionItemProps): R
 	const messageTime = useMemo(() => hydratedMessage?.ts || notification.receivedAt, [hydratedMessage?.ts, notification.receivedAt]);
 
 	const handleJump = () => {
+		if (!notification.seen) {
+			void Meteor.callAsync('activityNotifications:markAsSeen', notification._id);
+		}
+
 		router.navigate({
 			name: notification.roomType === 'd' ? 'direct' : notification.roomType === 'p' ? 'group' : 'channel',
 			params: notification.roomType === 'd' ? { rid: notification.rid } : { name: notification.roomName || '' },
@@ -66,16 +71,15 @@ const MentionItem = ({ notification, sequential, onClear }: MentionItemProps): R
 
 	const handleClear = (e: MouseEvent): void => {
 		e.stopPropagation();
-		onClear(notification.id);
+		onClear(notification._id);
 	};
 
 	return (
-		<Box opacity={notification.seen ? 0.7 : 1}>
+		<Box>
 			<Message
 				onClick={handleJump}
 				style={{
 					cursor: 'pointer',
-					fontWeight: notification.seen ? '400' : '600',
 				}}
 			>
 				<MessageLeftContainer>
@@ -86,13 +90,19 @@ const MentionItem = ({ notification, sequential, onClear }: MentionItemProps): R
 						<MessageHeader>
 							<MessageName>{displayName}</MessageName>
 							<MessageTimestamp title={formatDateAndTime(messageTime)}>{formatTime(messageTime)}</MessageTimestamp>
+							<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
+								<RoomAvatar size='x16' room={{ _id: notification.rid, type: notification.roomType || 'c' }} />
+								<Box is='span' fontScale='c1' mis={4}>
+									{notification.roomType === 'd' ? notification.roomName || t('Direct_Messages') : `#${notification.roomName || ''}`}
+								</Box>
+							</Box>
 						</MessageHeader>
 					)}
 					<MessageBody>
 						{hydratedMessage ? (
 							<RoomMessageContent message={hydratedMessage} unread={false} mention={false} all={false} />
 						) : (
-							notification.text || notification.title
+							notification.text
 						)}
 					</MessageBody>
 				</MessageContainer>
