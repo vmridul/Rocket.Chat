@@ -19,7 +19,7 @@ export const useActivityNotifications = () => {
 			return result.notifications || [];
 		},
 		enabled: !!uid,
-		staleTime: Infinity, // Rely on streams for updates
+		staleTime: Infinity, // rely on streams for updates
 	});
 
 	const notifications = data || [];
@@ -31,18 +31,25 @@ export const useActivityNotifications = () => {
 
 		const handleNotificationEvent = (event: unknown) => {
 			const notification = event as ActivityNotificationRecord;
+
 			queryClient.setQueryData(['activity-notifications', uid], (oldQueryData: ActivityNotificationRecord[] | undefined) => {
 				const oldData = oldQueryData || [];
-				// Check if we already have it to update, otherwise insert
-				const index = oldData.findIndex((n) => n._id === notification._id);
+
+				// Match by messageId (thread root id) instead of _id
+				const index = oldData.findIndex((n) => n.messageId === notification.messageId);
+
 				if (index > -1) {
 					const newData = [...oldData];
 					newData[index] = notification;
-					// Sort by receivedAt descending
+
 					return newData.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 				}
-				// New notification, add and sort
+
 				return [notification, ...oldData].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+			});
+
+			void queryClient.invalidateQueries({
+				queryKey: ['activity-center', 'notification-message', notification.messageId],
 			});
 		};
 
@@ -56,7 +63,7 @@ export const useActivityNotifications = () => {
 	const clearOne = useCallback(
 		async (id: string) => {
 			await Meteor.callAsync('activityNotifications:remove', id);
-			// Optimistic sync - could alternatively just invalidate the query, but we know the exact id
+
 			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotificationRecord[] | undefined) => {
 				if (!oldData) return [];
 				return oldData.filter((n) => n._id !== id);
@@ -73,8 +80,10 @@ export const useActivityNotifications = () => {
 	const markAsSeen = useCallback(
 		async (id: string) => {
 			await Meteor.callAsync('activityNotifications:markAsSeen', id);
+
 			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotificationRecord[] | undefined) => {
 				if (!oldData) return [];
+
 				return oldData.map((n) => (n._id === id ? { ...n, seen: true } : n));
 			});
 		},

@@ -2,7 +2,6 @@ import type { MouseEvent, ReactElement } from 'react';
 import {
 	Box,
 	Message,
-	MessageBody,
 	MessageContainer,
 	MessageHeader,
 	MessageLeftContainer,
@@ -67,9 +66,7 @@ const MentionsMessageItem = ({ message }: MentionsMessageItemProps): ReactElemen
 						</Box>
 					</Box>
 				</MessageHeader>
-				<MessageBody>
-					<RoomMessageContent message={message} unread={false} mention all={false} />
-				</MessageBody>
+				<RoomMessageContent message={message} unread={false} mention all={false} showThreadMetrics />
 			</MessageContainer>
 			<MessageToolbarWrapper>
 				<MessageToolbar>

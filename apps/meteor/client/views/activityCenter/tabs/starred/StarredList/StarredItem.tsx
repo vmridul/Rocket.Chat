@@ -6,7 +6,6 @@ import {
 	MessageLeftContainer,
 	MessageContainer,
 	MessageHeader,
-	MessageBody,
 	MessageName,
 	MessageStatusIndicator,
 	MessageStatusIndicatorItem,
@@ -117,9 +116,7 @@ const StarredItem = ({ message, onUnstar }: Props): ReactElement => {
 					</Box>
 				</MessageHeader>
 
-				<MessageBody>
-					<RoomMessageContent message={message} unread={false} mention={false} all={false} />
-				</MessageBody>
+				<RoomMessageContent message={message} unread={false} mention={false} all={false} showThreadMetrics />
 			</MessageContainer>
 			<MessageToolbarWrapper visible={isMenuOpen}>
 				<MessageToolbar>

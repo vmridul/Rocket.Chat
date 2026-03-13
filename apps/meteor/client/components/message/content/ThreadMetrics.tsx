@@ -7,13 +7,13 @@ import {
 	MessageMetricsItemLabel,
 } from '@rocket.chat/fuselage';
 import { useResizeObserver } from '@rocket.chat/fuselage-hooks';
+import { useRouter } from '@rocket.chat/ui-contexts';
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ThreadMetricsFollow from './ThreadMetricsFollow';
 import ThreadMetricsParticipants from './ThreadMetricsParticipants';
 import { useTimeAgo } from '../../../hooks/useTimeAgo';
-import { useGoToThread } from '../../../views/room/hooks/useGoToThread';
 
 type ThreadMetricsProps = {
 	unread: boolean;
@@ -29,14 +29,39 @@ type ThreadMetricsProps = {
 
 const ThreadMetrics = ({ unread, mention, all, rid, mid, counter, participants, following, lm }: ThreadMetricsProps): ReactElement => {
 	const { t } = useTranslation();
+	const router = useRouter();
 
 	const format = useTimeAgo();
-
-	const goToThread = useGoToThread();
 
 	const { ref, borderBoxSize } = useResizeObserver<HTMLDivElement>();
 
 	const isSmall = (borderBoxSize.inlineSize || Infinity) < 320;
+
+	const handleGoToThread = async () => {
+		const routeName = router.getRouteName();
+
+		if (routeName && routeName !== 'activity-center') {
+			router.navigate({
+				name: routeName,
+				params: {
+					rid,
+					...router.getRouteParameters(),
+					tab: 'thread',
+					context: mid,
+				},
+			});
+			return;
+		}
+
+		const { goToRoomById } = await import('../../../lib/utils/goToRoomById');
+
+		await goToRoomById(rid, {
+			routeParamsOverrides: {
+				tab: 'thread',
+				context: mid,
+			},
+		});
+	};
 
 	return (
 		<MessageBlock ref={ref}>
@@ -44,7 +69,11 @@ const ThreadMetrics = ({ unread, mention, all, rid, mid, counter, participants, 
 				<MessageMetricsReply
 					data-rid={rid}
 					data-mid={mid}
-					onClick={() => goToThread({ rid, tmid: mid })}
+					onClick={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						void handleGoToThread();
+					}}
 					primary={!!unread}
 					position='relative'
 					overflow='visible'

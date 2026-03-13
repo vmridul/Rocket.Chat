@@ -370,7 +370,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 				uid: subscription.u._id,
 				message,
 				room,
-				roomName: subscription.name,
+				roomName: room.fname || room.name || subscription.name,
 				sender,
 				text: notificationMessage,
 				hasMentionToUser,

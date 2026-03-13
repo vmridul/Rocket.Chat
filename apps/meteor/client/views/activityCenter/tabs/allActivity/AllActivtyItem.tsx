@@ -25,15 +25,15 @@ import { onClientMessageReceived } from '/client/lib/onClientMessageReceived';
 import { mapMessageFromApi } from '/client/lib/utils/mapMessageFromApi';
 import RoomMessageContent from '/client/components/message/variants/room/RoomMessageContent';
 import { useEndpoint } from '@rocket.chat/ui-contexts';
-import type { ActivityNotification } from '../../../hooks/useActivityNotifications';
+import type { ActivityNotification } from '../../hooks/useActivityNotifications';
 
-type MentionItemProps = {
+type ActivityItemProps = {
 	notification: ActivityNotification;
 	sequential: boolean;
 	onClear: (id: string) => void;
 };
 
-const MentionItem = ({ notification, sequential, onClear }: MentionItemProps): ReactElement => {
+const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps): ReactElement => {
 	const { t } = useTranslation();
 	const router = useRouter();
 	const getMessage = useEndpoint('GET', '/v1/chat.getMessage');
@@ -98,13 +98,11 @@ const MentionItem = ({ notification, sequential, onClear }: MentionItemProps): R
 							</Box>
 						</MessageHeader>
 					)}
-					<MessageBody>
-						{hydratedMessage ? (
-							<RoomMessageContent message={hydratedMessage} unread={false} mention={false} all={false} />
-						) : (
-							notification.text
-						)}
-					</MessageBody>
+					{hydratedMessage ? (
+						<RoomMessageContent message={hydratedMessage} unread={false} mention={false} all={false} showThreadMetrics />
+					) : (
+						<MessageBody>{notification.text}</MessageBody>
+					)}
 				</MessageContainer>
 				<MessageToolbarWrapper>
 					<MessageToolbar>
@@ -117,4 +115,4 @@ const MentionItem = ({ notification, sequential, onClear }: MentionItemProps): R
 	);
 };
 
-export default MentionItem;
+export default ActivityItem;

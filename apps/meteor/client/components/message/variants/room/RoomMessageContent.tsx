@@ -30,9 +30,10 @@ type RoomMessageContentProps = {
 	mention: boolean;
 	all: boolean;
 	searchText?: string;
+	showThreadMetrics?: boolean;
 };
 
-const RoomMessageContent = ({ message, unread, all, mention, searchText }: RoomMessageContentProps): ReactElement => {
+const RoomMessageContent = ({ message, unread, all, mention, searchText, showThreadMetrics }: RoomMessageContentProps): ReactElement => {
 	const encrypted = isE2EEMessage(message);
 	const { enabled: oembedEnabled } = useOembedLayout();
 	const subscription = useSubscriptionFromMessageQuery(message).data ?? undefined;
@@ -95,7 +96,7 @@ const RoomMessageContent = ({ message, unread, all, mention, searchText }: RoomM
 
 			{normalizedMessage.reactions && Object.keys(normalizedMessage.reactions).length && <Reactions message={normalizedMessage} />}
 
-			{chat && isThreadMainMessage(normalizedMessage) && (
+			{(showThreadMetrics ?? Boolean(chat)) && isThreadMainMessage(normalizedMessage) && (
 				<ThreadMetrics
 					counter={normalizedMessage.tcount}
 					following={Boolean(uid && normalizedMessage?.replies?.indexOf(uid) > -1)}
