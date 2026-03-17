@@ -1,9 +1,9 @@
 import { api } from '@rocket.chat/core-services';
 import type { IMessage, IRoom, IUser } from '@rocket.chat/core-typings';
-import { Messages } from '@rocket.chat/models';
+import { Messages, Rooms } from '@rocket.chat/models';
 
-import { ActivityNotificationsCollection } from '../../collections/activityNotifications';
-import { Rooms } from '@rocket.chat/models';
+import { ActivityNotificationsCollection, type ActivityNotificationRecord } from '../../collections/activityNotifications';
+import { callbacks } from '../../../../server/lib/callbacks';
 
 export const createActivityNotification = async ({
 	uid,
@@ -106,3 +106,25 @@ export const createActivityNotification = async ({
 		void api.broadcast('notify.activity-notification', uid, notificationDoc);
 	}
 };
+
+callbacks.add(
+	'afterDeleteMessage',
+	async (message: IMessage) => {
+		if (!message?._id) {
+			return message;
+		}
+
+		const affectedDocs = await ActivityNotificationsCollection.find({ messageId: message._id }).fetchAsync();
+
+		await Promise.all(
+			affectedDocs.map(async (doc: ActivityNotificationRecord) => {
+				await ActivityNotificationsCollection.removeAsync({ _id: doc._id });
+				void api.broadcast('notify.activity-notification-removed', doc.userId, { messageId: message._id });
+			}),
+		);
+
+		return message;
+	},
+	callbacks.priority.LOW,
+	'activityNotifications.afterDeleteMessage',
+);

@@ -10,6 +10,7 @@ export const useActivityNotifications = () => {
 	const uid = useUserId();
 	const queryClient = useQueryClient();
 	const notifyUserStream = useStream('notify-user');
+	//check correct usage from other places
 	const getNotifications = useEndpoint('GET', '/v1/activity-notifications');
 
 	const { data, isLoading } = useQuery({
@@ -28,7 +29,7 @@ export const useActivityNotifications = () => {
 		if (!uid) {
 			return;
 		}
-
+		// check if unknown can be changed to ActivityNotificationRecord
 		const handleNotificationEvent = (event: unknown) => {
 			const notification = event as ActivityNotificationRecord;
 
@@ -46,6 +47,7 @@ export const useActivityNotifications = () => {
 				}
 
 				return [notification, ...oldData].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+				// remove sort if already sorted by default
 			});
 
 			void queryClient.invalidateQueries({
@@ -53,10 +55,19 @@ export const useActivityNotifications = () => {
 			});
 		};
 
+		const handleRemovalEvent = ({ messageId }: { messageId: string }) => {
+			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotificationRecord[] | undefined) => {
+				if (!oldData) return [];
+				return oldData.filter((n) => n.messageId !== messageId);
+			});
+		};
+
 		const unsub = notifyUserStream(`${uid}/activity-notification`, handleNotificationEvent);
+		const unsubRemoval = notifyUserStream(`${uid}/activity-notification-removed`, handleRemovalEvent);
 
 		return () => {
 			unsub();
+			unsubRemoval();
 		};
 	}, [uid, notifyUserStream, queryClient]);
 

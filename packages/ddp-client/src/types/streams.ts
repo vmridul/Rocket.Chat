@@ -185,6 +185,7 @@ export interface StreamerEvents {
 		{ key: `${string}/calendar`; args: [ICalendarNotification] },
 		{ key: `${string}/banners`; args: [IBanner] },
 		{ key: `${string}/activity-notification`; args: [unknown] },
+		{ key: `${string}/activity-notification-removed`; args: [{ messageId: string }] },
 	];
 
 	'importers': [

@@ -1,7 +1,8 @@
 import { useRoomList } from '/client/sidebar/hooks/useRoomList';
-import { useEndpoint, useUserId } from '@rocket.chat/ui-contexts';
-import { useQuery } from '@tanstack/react-query';
+import { useEndpoint, useStream, useUserId } from '@rocket.chat/ui-contexts';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IMessage, RoomType } from '@rocket.chat/core-typings';
+import { useEffect } from 'react';
 
 export type MentionMessage = IMessage & {
 	roomName: string | undefined;
@@ -12,10 +13,23 @@ export const useMentionsQuery = () => {
 	const { roomList } = useRoomList({});
 	const getMentions = useEndpoint('GET', '/v1/chat.getMentionedMessages');
 	const uid = useUserId();
+	const queryClient = useQueryClient();
+	const subscribeToNotifyUser = useStream('notify-user');
+	const queryKey = ['mentions', uid, roomList.map((r) => r.rid)] as const;
+
+	useEffect(() => {
+		if (!uid) {
+			return;
+		}
+
+		return subscribeToNotifyUser(`${uid}/subscriptions-changed`, () => {
+			void queryClient.invalidateQueries({ queryKey: ['mentions', uid] });
+		});
+	}, [queryClient, subscribeToNotifyUser, uid]);
 
 	return useQuery<MentionMessage[]>({
-		queryKey: ['mentions', roomList.map((r) => r.rid)],
-		enabled: roomList.length > 0,
+		queryKey,
+		enabled: !!uid && roomList.length > 0,
 		queryFn: async () => {
 			const results = await Promise.all(
 				roomList.map(async (room) => {

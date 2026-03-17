@@ -443,6 +443,10 @@ export class ListenersModule {
 			notifications.notifyUserInThisInstance(uid, 'activity-notification', data);
 		});
 
+		service.onEvent('notify.activity-notification-removed', (uid, data): void => {
+			notifications.notifyUserInThisInstance(uid, 'activity-notification-removed', data);
+		});
+
 		service.onEvent('notify.importedMessages', ({ roomIds }): void => {
 			roomIds.forEach((rid) => {
 				// couldnt get TS happy by providing no data, so had to provide null
