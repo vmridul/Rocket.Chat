@@ -90,6 +90,11 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 						<MessageHeader>
 							<MessageName>{displayName}</MessageName>
 							<MessageTimestamp title={formatDateAndTime(messageTime)}>{formatTime(messageTime)}</MessageTimestamp>
+							{notification.roomType === 'd' && (
+								<Box is='span' fontScale='c1' mis={6} color='hint'>
+									{t('sent_you_a_message')}
+								</Box>
+							)}
 							{notification.roomType !== 'd' && (
 								<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
 									<Box is='span' fontScale='c1' mie={6}>
