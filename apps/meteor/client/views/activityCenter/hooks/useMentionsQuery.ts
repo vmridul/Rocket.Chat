@@ -38,7 +38,7 @@ export const useMentionsQuery = () => {
 						.filter((msg) => msg.u._id !== uid)
 						.map((msg) => ({
 							...msg,
-							roomName: room.name,
+							roomName: room.fname ?? room.name,
 							roomType: room.t,
 						}));
 				}),

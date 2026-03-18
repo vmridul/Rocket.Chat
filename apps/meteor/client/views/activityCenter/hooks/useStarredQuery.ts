@@ -33,7 +33,7 @@ export const useStarredQuery = () => {
 					const hydrated = await Promise.all(messages.map(onClientMessageReceived));
 
 					return hydrated.map((msg) => {
-						(msg as StarredMessage).roomName = room.name;
+						(msg as StarredMessage).roomName = room.fname ?? room.name;
 						(msg as StarredMessage).roomType = room.t;
 						return msg as StarredMessage;
 					});

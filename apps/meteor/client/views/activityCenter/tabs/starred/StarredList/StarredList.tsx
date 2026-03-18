@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Box, MessageDivider } from '@rocket.chat/fuselage';
+import { Box, Button, MessageDivider } from '@rocket.chat/fuselage';
 import { Virtuoso } from 'react-virtuoso';
 import { VirtualizedScrollbars, ContextualbarEmptyContent } from '@rocket.chat/ui-client';
 
@@ -12,12 +12,14 @@ import { isMessageNewDay } from '/client/views/room/MessageList/lib/isMessageNew
 
 import StarredItem from './StarredItem';
 import FilterByText from '/client/components/FilterByText';
+import { useActivityCenterContext } from '../../../contexts/ActivityCenterContext';
 
 const StarredList = (): ReactElement => {
 	const { t } = useTranslation();
 	const formatDate = useFormatDate();
 
 	const { data, isFetched, isLoading, isError } = useStarredQuery();
+	const { setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
 
 	const [searchText, setSearchText] = useState('');
 	const [locallyUnstarredIds, setLocallyUnstarredIds] = useState<Set<string>>(new Set());
@@ -36,8 +38,13 @@ const StarredList = (): ReactElement => {
 
 	return (
 		<Box height='100%' display='flex' flexDirection='column'>
-			<Box paddingInline={16}>
-				<FilterByText placeholder={t('Search Starred Messages')} value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+			<Box display='flex' alignItems='center' paddingInline={16} paddingBlock={8} width='full'>
+				<Box flexGrow={1} mie={8}>
+					<FilterByText placeholder={t('Search Starred Messages')} value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+				</Box>
+				<Button icon='customize' onClick={() => setIsFiltersOpen(true)} color={hasAppliedFilters ? 'status-font-on-success' : undefined}>
+					{t('Filters')}
+				</Button>
 			</Box>
 
 			{isLoading && <div>{t('Loading')}</div>}

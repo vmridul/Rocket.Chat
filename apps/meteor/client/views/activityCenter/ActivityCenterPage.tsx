@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import AllActivityTab from './tabs/allActivity/AllActivityTab';
 import MentionsTab from './tabs/mentions/MentionsTab';
 import StarredTab from './tabs/starred/StarredTab';
+import ActivityCenterProvider from './providers/ActivityCenterProvider';
 
 type TabName = 'all-activity' | 'notifications' | 'starred';
 
@@ -48,11 +49,13 @@ const ActivityCenterPage = (): ReactElement => {
 					{t('Starred Messages')}
 				</Tabs.Item>
 			</Tabs>
-			<PageContent paddingInline={0} overflow='hidden' height='100%'>
-				{tab === 'all-activity' && <AllActivityTab />}
-				{tab === 'notifications' && <MentionsTab />}
-				{tab === 'starred' && <StarredTab />}
-			</PageContent>
+			<ActivityCenterProvider>
+				<PageContent paddingInline={0} overflow='hidden' height='100%'>
+					{tab === 'all-activity' && <AllActivityTab />}
+					{tab === 'notifications' && <MentionsTab />}
+					{tab === 'starred' && <StarredTab />}
+				</PageContent>
+			</ActivityCenterProvider>
 		</Page>
 	);
 };

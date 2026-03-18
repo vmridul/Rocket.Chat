@@ -90,12 +90,17 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 						<MessageHeader>
 							<MessageName>{displayName}</MessageName>
 							<MessageTimestamp title={formatDateAndTime(messageTime)}>{formatTime(messageTime)}</MessageTimestamp>
-							<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
-								<RoomAvatar size='x16' room={{ _id: notification.rid, type: notification.roomType || 'c' }} />
-								<Box is='span' fontScale='c1' mis={4}>
-									{notification.roomType === 'd' ? notification.roomName || t('Direct_Messages') : `#${notification.roomName || ''}`}
+							{notification.roomType !== 'd' && (
+								<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
+									<Box is='span' fontScale='c1' mie={6}>
+										{t('sent_a_message_in')}
+									</Box>
+									<RoomAvatar size='x16' room={{ _id: notification.rid, type: notification.roomType || 'c' }} />
+									<Box is='span' fontScale='c1' mis={4}>
+										{`#${notification.roomName || ''}`}
+									</Box>
 								</Box>
-							</Box>
+							)}
 						</MessageHeader>
 					)}
 					{hydratedMessage ? (

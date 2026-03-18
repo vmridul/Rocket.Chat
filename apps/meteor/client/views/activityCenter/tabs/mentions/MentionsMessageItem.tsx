@@ -60,10 +60,21 @@ const MentionsMessageItem = ({ message }: MentionsMessageItemProps): ReactElemen
 					<MessageName>{displayName}</MessageName>
 					<MessageTimestamp title={formatDateAndTime(message.ts)}>{formatTime(message.ts)}</MessageTimestamp>
 					<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
-						<RoomAvatar size='x16' room={{ _id: message.rid, type: message.roomType || 'c' }} />
-						<Box is='span' fontScale='c1' mis={4}>
-							{message.roomType === 'd' ? message.roomName || t('Direct_Messages') : `#${message.roomName || ''}`}
-						</Box>
+						{message.roomType === 'd' ? (
+							<Box is='span' fontScale='c1'>
+								{t('mentioned_you')}
+							</Box>
+						) : (
+							<>
+								<Box is='span' fontScale='c1' mie={6}>
+									{t('mentioned_you_in')}
+								</Box>
+								<RoomAvatar size='x16' room={{ _id: message.rid, type: message.roomType || 'c' }} />
+								<Box is='span' fontScale='c1' mis={4}>
+									{`#${message.roomName || ''}`}
+								</Box>
+							</>
+						)}
 					</Box>
 				</MessageHeader>
 				<RoomMessageContent message={message} unread={false} mention all={false} showThreadMetrics />
