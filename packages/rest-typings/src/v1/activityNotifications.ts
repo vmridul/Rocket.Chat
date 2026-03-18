@@ -10,7 +10,7 @@ export type ActivityNotificationRecord = {
 		name?: string;
 	};
 	text: string;
-	type: 'message' | 'mention' | 'reply';
+	type: 'message' | 'mention';
 	receivedAt: Date | string;
 	seen: boolean;
 };

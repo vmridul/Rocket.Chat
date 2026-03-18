@@ -24,24 +24,18 @@ export const createActivityNotification = async ({
 	hasMentionToUser: boolean;
 	hasReplyToThread: boolean;
 }): Promise<void> => {
-	let type: 'message' | 'mention' | 'reply' = 'message';
+	const type: 'message' | 'mention' = hasMentionToUser || hasReplyToThread ? 'mention' : 'message';
 
-	if (hasMentionToUser) {
-		type = 'mention';
-	} else if (hasReplyToThread) {
-		type = 'reply';
-	}
-
-	// room used for navigation
-	let notificationRoom = {
+	const navigationRoom = {
 		rid: room._id,
 		roomType: room.t,
 		roomName,
+	};
 
-		// room used only for display in activity center
-		displayRid: room._id,
-		displayRoomType: room.t,
-		displayRoomName: roomName,
+	let displayRoom = {
+		rid: room._id,
+		roomType: room.t,
+		roomName,
 	};
 
 	let rootMessageId = message.tmid ?? message._id;
@@ -60,9 +54,11 @@ export const createActivityNotification = async ({
 
 		// show parent channel in UI
 		if (parentRoom) {
-			notificationRoom.displayRid = parentRoom._id;
-			notificationRoom.displayRoomType = parentRoom.t;
-			notificationRoom.displayRoomName = parentRoom.fname ?? parentRoom.name;
+			displayRoom = {
+				rid: parentRoom._id,
+				roomType: parentRoom.t,
+				roomName: parentRoom.fname ?? parentRoom.name,
+			};
 		}
 	}
 
@@ -72,15 +68,12 @@ export const createActivityNotification = async ({
 		{ userId: uid, messageId: rootMessageId },
 		{
 			$set: {
-				// real room for navigation
-				rid: notificationRoom.rid,
-				roomType: notificationRoom.roomType,
-				roomName: notificationRoom.roomName,
-
-				// display room (parent channel for discussions)
-				displayRid: notificationRoom.displayRid,
-				displayRoomType: notificationRoom.displayRoomType,
-				displayRoomName: notificationRoom.displayRoomName,
+				rid: navigationRoom.rid,
+				roomType: navigationRoom.roomType,
+				roomName: navigationRoom.roomName,
+				displayRid: displayRoom.rid,
+				displayRoomType: displayRoom.roomType,
+				displayRoomName: displayRoom.roomName,
 
 				sender: {
 					username: sender.username,

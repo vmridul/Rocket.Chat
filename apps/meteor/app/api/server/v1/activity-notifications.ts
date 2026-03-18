@@ -20,8 +20,21 @@ API.v1.addRoute(
 				},
 			).fetchAsync();
 
+			const normalizedNotifications = notifications.map((notification) => {
+				const notificationType = (notification as { type: string }).type;
+
+				if (notificationType !== 'reply') {
+					return notification;
+				}
+
+				return {
+					...notification,
+					type: 'mention' as const,
+				};
+			});
+
 			return API.v1.success({
-				notifications,
+				notifications: normalizedNotifications,
 			});
 		},
 	},
