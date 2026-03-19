@@ -361,11 +361,14 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 	subscriptions.forEach((subscription) => {
 		const hasMentionToUser = mentionIds.includes(subscription.u._id);
 		const hasReplyToThread = usersInThread?.includes(subscription.u._id);
+		const isThread = !!message.tmid && !message.tshow;
+		const isUnfollowedThread = isThread && !hasMentionToUser && !hasReplyToThread;
 
-		if (
+		const shouldCreateActivityNotification =
 			subscription.u._id !== sender._id &&
-			!(!hasMentionToUser && !hasReplyToThread && subscription.muteGroupMentions && (hasMentionToAll || hasMentionToHere))
-		) {
+			!(!hasMentionToUser && !hasReplyToThread && subscription.muteGroupMentions && (hasMentionToAll || hasMentionToHere));
+
+		if (shouldCreateActivityNotification) {
 			void createActivityNotification({
 				uid: subscription.u._id,
 				message,
@@ -375,6 +378,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 				text: notificationMessage,
 				hasMentionToUser,
 				hasReplyToThread,
+				isUnfollowedThread,
 			});
 		}
 

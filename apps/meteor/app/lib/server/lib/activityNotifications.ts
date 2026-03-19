@@ -9,15 +9,7 @@ import {
 } from '../../collections/activityNotifications';
 import { callbacks } from '../../../../server/lib/callbacks';
 
-const isNotificationUnread = ({
-	receivedAt,
-	roomLastSeen,
-	threadLastSeen,
-}: {
-	receivedAt: Date | string;
-	roomLastSeen?: Date;
-	threadLastSeen?: Date;
-}): boolean => {
+const isNotificationUnread = ({ receivedAt, roomLastSeen }: { receivedAt: Date | string; roomLastSeen?: Date }): boolean => {
 	const receivedAtDate = new Date(receivedAt);
 
 	if (Number.isNaN(receivedAtDate.getTime())) {
@@ -25,10 +17,6 @@ const isNotificationUnread = ({
 	}
 
 	if (roomLastSeen && roomLastSeen >= receivedAtDate) {
-		return false;
-	}
-
-	if (threadLastSeen && threadLastSeen >= receivedAtDate) {
 		return false;
 	}
 
@@ -47,24 +35,32 @@ export const hydrateActivityNotificationsReadState = async ({
 	}
 
 	const roomIds = [...new Set(notifications.map((notification) => notification.rid))];
-	const messageIds = [...new Set(notifications.map((notification) => notification.messageId))];
 
-	const [subscriptions, messageReads] = await Promise.all([
-		Subscriptions.findByUserIdAndRoomIds(userId, roomIds, { projection: { rid: 1, ls: 1 } }).toArray(),
-		MessageReads.find({ userId, tmid: { $in: messageIds } }, { projection: { tmid: 1, ls: 1 } }).toArray(),
-	]);
+	const subscriptions = await Subscriptions.findByUserIdAndRoomIds(userId, roomIds, {
+		projection: { rid: 1, ls: 1, tunread: 1 },
+	}).toArray();
 
-	const roomLastSeenById = new Map(subscriptions.map((subscription) => [subscription.rid, subscription.ls]));
-	const threadLastSeenById = new Map(messageReads.map((read) => [read.tmid, read.ls]));
+	const roomSubById = new Map(subscriptions.map((subscription) => [subscription.rid, subscription]));
 
-	return notifications.map((notification) => ({
-		...notification,
-		isUnread: isNotificationUnread({
-			receivedAt: notification.receivedAt,
-			roomLastSeen: roomLastSeenById.get(notification.rid),
-			threadLastSeen: threadLastSeenById.get(notification.messageId),
-		}),
-	})) as ActivityNotification[];
+	return notifications.map((notification) => {
+		const sub = roomSubById.get(notification.rid);
+		const tunread = sub?.tunread || [];
+		let isUnread = true;
+
+		if (notification.isThreadReply) {
+			isUnread = tunread.includes(notification.messageId);
+		} else {
+			isUnread = isNotificationUnread({
+				receivedAt: notification.receivedAt,
+				roomLastSeen: sub?.ls,
+			});
+		}
+
+		return {
+			...notification,
+			isUnread,
+		} as ActivityNotification;
+	});
 };
 
 export const createActivityNotification = async ({
@@ -76,6 +72,7 @@ export const createActivityNotification = async ({
 	text,
 	hasMentionToUser,
 	hasReplyToThread,
+	isUnfollowedThread,
 }: {
 	uid: string;
 	message: Pick<IMessage, '_id' | 'tmid'>;
@@ -85,6 +82,7 @@ export const createActivityNotification = async ({
 	text?: string;
 	hasMentionToUser: boolean;
 	hasReplyToThread: boolean;
+	isUnfollowedThread?: boolean;
 }): Promise<void> => {
 	const type: 'message' | 'mention' = hasMentionToUser || hasReplyToThread ? 'mention' : 'message';
 
@@ -135,35 +133,50 @@ export const createActivityNotification = async ({
 
 	const docId = `${uid}:${rootMessageId}`;
 
-	await ActivityNotificationsCollection.upsertAsync(
-		{ userId: uid, messageId: rootMessageId },
-		{
-			$set: {
-				receivedAt: new Date(),
-				isThreadReply: hasReplyToThread,
-			},
-			$setOnInsert: {
-				_id: docId,
-				userId: uid,
-				messageId: rootMessageId,
-
-				rid: navigationRoom.rid,
-				roomType: navigationRoom.roomType,
-				roomName: navigationRoom.roomName,
-				displayRid: displayRoom.rid,
-				displayRoomType: displayRoom.roomType,
-				displayRoomName: displayRoom.roomName,
-
-				sender: {
-					username: rootMessage.u?.username ?? sender.username,
-					name: rootMessage.u?.name ?? sender.name,
+	if (isUnfollowedThread) {
+		const result = await ActivityNotificationsCollection.updateAsync(
+			{ userId: uid, messageId: rootMessageId },
+			{
+				$set: {
+					isThreadReply: true,
 				},
-
-				text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
-				type,
 			},
-		},
-	);
+		);
+
+		if (result === 0) {
+			return;
+		}
+	} else {
+		await ActivityNotificationsCollection.upsertAsync(
+			{ userId: uid, messageId: rootMessageId },
+			{
+				$set: {
+					receivedAt: new Date(),
+					isThreadReply: !!message.tmid,
+				},
+				$setOnInsert: {
+					_id: docId,
+					userId: uid,
+					messageId: rootMessageId,
+
+					rid: navigationRoom.rid,
+					roomType: navigationRoom.roomType,
+					roomName: navigationRoom.roomName,
+					displayRid: displayRoom.rid,
+					displayRoomType: displayRoom.roomType,
+					displayRoomName: displayRoom.roomName,
+
+					sender: {
+						username: rootMessage.u?.username ?? sender.username,
+						name: rootMessage.u?.name ?? sender.name,
+					},
+
+					text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
+					type,
+				},
+			},
+		);
+	}
 
 	const notificationDoc = await ActivityNotificationsCollection.findOneAsync({ _id: docId });
 
@@ -194,3 +207,11 @@ callbacks.add(
 	callbacks.priority.LOW,
 	'activityNotifications.afterDeleteMessage',
 );
+
+export const removeActivityNotification = async ({ uid, messageId }: { uid: string; messageId: string }): Promise<void> => {
+	const docId = `${uid}:${messageId}`;
+	const removed = await ActivityNotificationsCollection.removeAsync({ _id: docId });
+	if (removed) {
+		void api.broadcast('notify.activity-notification-removed', uid, { messageId });
+	}
+};
