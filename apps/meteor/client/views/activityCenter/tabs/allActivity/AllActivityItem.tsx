@@ -17,7 +17,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from '@rocket.chat/ui-contexts';
 import { RoomAvatar, UserAvatar } from '@rocket.chat/ui-avatar';
 import { useUserDisplayName } from '@rocket.chat/ui-client';
-import { Meteor } from 'meteor/meteor';
 import { useTranslation } from 'react-i18next';
 import { useFormatTime } from '/client/hooks/useFormatTime';
 import { useFormatDateAndTime } from '/client/hooks/useFormatDateAndTime';
@@ -50,18 +49,21 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 		retry: false,
 	});
 
+	const actorUsername = notification.sender.username ?? hydratedMessage?.u?.username ?? '';
+	const actorName = notification.sender.name ?? hydratedMessage?.u?.name ?? '';
+
 	const displayName = useUserDisplayName({
-		name: hydratedMessage?.u?.name ?? notification.sender.name ?? '',
-		username: hydratedMessage?.u?.username ?? notification.sender.username ?? '',
+		name: actorName,
+		username: actorUsername,
 	});
 
 	const messageTime = useMemo(() => hydratedMessage?.ts || notification.receivedAt, [hydratedMessage?.ts, notification.receivedAt]);
+	const readMetaTextStyle = !notification.isUnread ? { opacity: 0.7 } : undefined;
+	const metaActionText = notification.isThreadReply ? 'new reply in thread in' : t('sent_a_message_in');
+	const metaActionTextDm = notification.isThreadReply ? 'new reply in thread' : t('sent_you_a_message');
+	const roomLabel = notification.roomType === 'd' ? notification.roomName || t('Direct_Message') : `#${notification.roomName || ''}`;
 
 	const handleJump = () => {
-		if (!notification.seen) {
-			void Meteor.callAsync('activityNotifications:markAsSeen', notification._id);
-		}
-
 		router.navigate({
 			name: notification.roomType === 'd' ? 'direct' : notification.roomType === 'p' ? 'group' : 'channel',
 			params: notification.roomType === 'd' ? { rid: notification.rid } : { name: notification.roomName || '' },
@@ -82,27 +84,25 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 					cursor: 'pointer',
 				}}
 			>
-				<MessageLeftContainer>
-					{!sequential && <UserAvatar username={notification.sender.username ?? ''} size='x36' />}
-				</MessageLeftContainer>
+				<MessageLeftContainer>{!sequential && <UserAvatar username={actorUsername} size='x36' />}</MessageLeftContainer>
 				<MessageContainer>
 					{!sequential && (
 						<MessageHeader>
 							<MessageName>{displayName}</MessageName>
 							<MessageTimestamp title={formatDateAndTime(messageTime)}>{formatTime(messageTime)}</MessageTimestamp>
 							{notification.roomType === 'd' && (
-								<Box is='span' fontScale='c1' mis={6} color='hint'>
-									{t('sent_you_a_message')}
+								<Box is='span' fontScale='c1' mis={6} color='hint' style={readMetaTextStyle}>
+									{metaActionTextDm}
 								</Box>
 							)}
 							{notification.roomType !== 'd' && (
 								<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
-									<Box is='span' fontScale='c1' mie={6}>
-										{t('sent_a_message_in')}
+									<Box is='span' fontScale='c1' mie={6} style={readMetaTextStyle}>
+										{metaActionText}
 									</Box>
 									<RoomAvatar size='x16' room={{ _id: notification.rid, type: notification.roomType || 'c' }} />
-									<Box is='span' fontScale='c1' mis={4}>
-										{`#${notification.roomName || ''}`}
+									<Box is='span' fontScale='c1' mis={4} style={readMetaTextStyle}>
+										{roomLabel}
 									</Box>
 								</Box>
 							)}

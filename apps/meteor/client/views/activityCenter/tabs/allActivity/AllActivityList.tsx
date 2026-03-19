@@ -11,7 +11,7 @@ import { useFormatDate } from '/client/hooks/useFormatDate';
 
 import { useActivityNotifications } from '../../hooks/useActivityNotifications';
 import { useActivityCenterContext } from '../../contexts/ActivityCenterContext';
-import ActivityItem from './AllActivtyItem';
+import ActivityItem from './AllActivityItem';
 
 const AllActivityList = (): ReactElement => {
 	const { t } = useTranslation();
@@ -64,14 +64,16 @@ const AllActivityList = (): ReactElement => {
 
 				let matchesDate = true;
 				if (filtersQuery.fromDate || filtersQuery.toDate) {
-					const notificationDate = new Date(notification.receivedAt).toDateString();
+					const notificationTime = new Date(notification.receivedAt).getTime();
 					if (filtersQuery.fromDate) {
-						const fromDate = new Date(filtersQuery.fromDate).toDateString();
-						matchesDate = matchesDate && notificationDate >= fromDate;
+						const fromDate = new Date(filtersQuery.fromDate);
+						fromDate.setHours(0, 0, 0, 0);
+						matchesDate = matchesDate && notificationTime >= fromDate.getTime();
 					}
 					if (filtersQuery.toDate) {
-						const toDate = new Date(filtersQuery.toDate).toDateString();
-						matchesDate = matchesDate && notificationDate <= toDate;
+						const toDate = new Date(filtersQuery.toDate);
+						toDate.setHours(23, 59, 59, 999);
+						matchesDate = matchesDate && notificationTime <= toDate.getTime();
 					}
 				}
 

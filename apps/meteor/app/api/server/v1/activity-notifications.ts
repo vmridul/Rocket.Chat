@@ -1,4 +1,5 @@
 import { ActivityNotificationsCollection } from '../../../lib/collections/activityNotifications';
+import { hydrateActivityNotificationsReadState } from '../../../lib/server/lib/activityNotifications';
 import { API } from '../api';
 
 API.v1.addRoute(
@@ -33,8 +34,13 @@ API.v1.addRoute(
 				};
 			});
 
-			return API.v1.success({
+			const hydratedNotifications = await hydrateActivityNotificationsReadState({
+				userId: this.userId,
 				notifications: normalizedNotifications,
+			});
+
+			return API.v1.success({
+				notifications: hydratedNotifications,
 			});
 		},
 	},

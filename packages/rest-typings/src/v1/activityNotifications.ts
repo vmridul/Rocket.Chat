@@ -12,14 +12,18 @@ export type ActivityNotificationRecord = {
 	text: string;
 	type: 'message' | 'mention';
 	receivedAt: Date | string;
-	seen: boolean;
+	isThreadReply?: boolean;
+};
+
+export type ActivityNotification = ActivityNotificationRecord & {
+	isUnread: boolean;
 };
 
 export type ActivityNotificationsEndpoints = {
 	'/v1/activity-notifications': {
 		GET: () => {
-			notifications: ActivityNotificationRecord[];
+			notifications: ActivityNotification[];
 		};
 	};
-	// other endpoints that might be added later like clear/markAsSeen
+	// other endpoints that might be added later like clear
 };

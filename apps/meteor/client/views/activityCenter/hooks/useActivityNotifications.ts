@@ -3,9 +3,9 @@ import type { IMessage } from '@rocket.chat/core-typings';
 import { useUserId, useEndpoint, useStream } from '@rocket.chat/ui-contexts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Meteor } from 'meteor/meteor';
-import type { ActivityNotificationRecord } from '/app/lib/collections/activityNotifications';
+import type { ActivityNotification as ActivityNotificationItem } from '/app/lib/collections/activityNotifications';
 
-export type ActivityNotification = ActivityNotificationRecord;
+export type ActivityNotification = ActivityNotificationItem;
 
 export const useActivityNotifications = () => {
 	const uid = useUserId();
@@ -13,9 +13,9 @@ export const useActivityNotifications = () => {
 	const queryClientRef = useRef(queryClient);
 	const notifyUserStream = useStream('notify-user');
 	const subscribeToRoomMessages = useStream('room-messages');
+	const subscribeToNotifyUser = useStream('notify-user');
 	const notificationUnsubscribersRef = useRef<Array<() => void>>([]);
 	const roomUnsubscribersRef = useRef<Array<() => void>>([]);
-	//check correct usage from other places
 	const getNotifications = useEndpoint('GET', '/v1/activity-notifications');
 
 	queryClientRef.current = queryClient;
@@ -56,11 +56,10 @@ export const useActivityNotifications = () => {
 		if (!uid) {
 			return cleanupNotificationSubscriptions;
 		}
-		// check if unknown can be changed to ActivityNotificationRecord
 		const handleNotificationEvent = (event: unknown) => {
-			const notification = event as ActivityNotificationRecord;
+			const notification = event as ActivityNotification;
 
-			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldQueryData: ActivityNotificationRecord[] | undefined) => {
+			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldQueryData: ActivityNotification[] | undefined) => {
 				const oldData = oldQueryData || [];
 
 				// Match by messageId (thread root id) instead of _id
@@ -74,7 +73,6 @@ export const useActivityNotifications = () => {
 				}
 
 				return [notification, ...oldData].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-				// remove sort if already sorted by default
 			});
 
 			void queryClientRef.current.invalidateQueries({
@@ -83,7 +81,7 @@ export const useActivityNotifications = () => {
 		};
 
 		const handleRemovalEvent = ({ messageId }: { messageId: string }) => {
-			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldData: ActivityNotificationRecord[] | undefined) => {
+			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldData: ActivityNotification[] | undefined) => {
 				if (!oldData) return [];
 				return oldData.filter((n) => n.messageId !== messageId);
 			});
@@ -119,11 +117,24 @@ export const useActivityNotifications = () => {
 		return cleanupRoomSubscriptions;
 	}, [uid, messageIdsByRoom, subscribeToRoomMessages, cleanupRoomSubscriptions]);
 
+	useEffect(() => {
+		if (!uid) {
+			return;
+		}
+
+		return subscribeToNotifyUser(`${uid}/subscriptions-changed`, () => {
+			void queryClientRef.current.invalidateQueries({
+				queryKey: ['activity-notifications', uid],
+				exact: true,
+			});
+		});
+	}, [uid, subscribeToNotifyUser]);
+
 	const clearOne = useCallback(
 		async (id: string) => {
 			await Meteor.callAsync('activityNotifications:remove', id);
 
-			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotificationRecord[] | undefined) => {
+			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotification[] | undefined) => {
 				if (!oldData) return [];
 				return oldData.filter((n) => n._id !== id);
 			});
@@ -136,20 +147,7 @@ export const useActivityNotifications = () => {
 		queryClient.setQueryData(['activity-notifications', uid], []);
 	}, [queryClient, uid]);
 
-	const markAsSeen = useCallback(
-		async (id: string) => {
-			await Meteor.callAsync('activityNotifications:markAsSeen', id);
-
-			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotificationRecord[] | undefined) => {
-				if (!oldData) return [];
-
-				return oldData.map((n) => (n._id === id ? { ...n, seen: true } : n));
-			});
-		},
-		[queryClient, uid],
-	);
-
-	const getUnreadCount = useCallback(() => notifications.filter((n) => !n.seen).length, [notifications]);
+	const getUnreadCount = useCallback(() => notifications.filter((n) => n.isUnread).length, [notifications]);
 
 	return useMemo(
 		() => ({
@@ -157,9 +155,8 @@ export const useActivityNotifications = () => {
 			isLoading,
 			clearOne,
 			clearAll,
-			markAsSeen,
 			getUnreadCount,
 		}),
-		[notifications, isLoading, clearOne, clearAll, markAsSeen, getUnreadCount],
+		[notifications, isLoading, clearOne, clearAll, getUnreadCount],
 	);
 };

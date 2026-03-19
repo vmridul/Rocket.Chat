@@ -17,11 +17,4 @@ Meteor.methods({
 		}
 		await ActivityNotificationsCollection.removeAsync({ userId: this.userId });
 	},
-	async 'activityNotifications:markAsSeen'(id: string) {
-		check(id, String);
-		if (!this.userId) {
-			throw new Meteor.Error('error-not-authorized', 'Not authorized', { method: 'activityNotifications:markAsSeen' });
-		}
-		await ActivityNotificationsCollection.updateAsync({ _id: id, userId: this.userId }, { $set: { seen: true } });
-	},
 });

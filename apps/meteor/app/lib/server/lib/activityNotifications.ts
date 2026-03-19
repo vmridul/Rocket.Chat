@@ -1,9 +1,71 @@
 import { api } from '@rocket.chat/core-services';
 import type { IMessage, IRoom, IUser } from '@rocket.chat/core-typings';
-import { Messages, Rooms } from '@rocket.chat/models';
+import { MessageReads, Messages, Rooms, Subscriptions } from '@rocket.chat/models';
 
-import { ActivityNotificationsCollection, type ActivityNotificationRecord } from '../../collections/activityNotifications';
+import {
+	ActivityNotificationsCollection,
+	type ActivityNotification,
+	type ActivityNotificationRecord,
+} from '../../collections/activityNotifications';
 import { callbacks } from '../../../../server/lib/callbacks';
+
+const isNotificationUnread = ({
+	receivedAt,
+	roomLastSeen,
+	threadLastSeen,
+}: {
+	receivedAt: Date | string;
+	roomLastSeen?: Date;
+	threadLastSeen?: Date;
+}): boolean => {
+	const receivedAtDate = new Date(receivedAt);
+
+	if (Number.isNaN(receivedAtDate.getTime())) {
+		return true;
+	}
+
+	if (roomLastSeen && roomLastSeen >= receivedAtDate) {
+		return false;
+	}
+
+	if (threadLastSeen && threadLastSeen >= receivedAtDate) {
+		return false;
+	}
+
+	return true;
+};
+
+export const hydrateActivityNotificationsReadState = async ({
+	userId,
+	notifications,
+}: {
+	userId: string;
+	notifications: ActivityNotificationRecord[];
+}): Promise<ActivityNotification[]> => {
+	if (notifications.length === 0) {
+		return [] as ActivityNotification[];
+	}
+
+	const roomIds = [...new Set(notifications.map((notification) => notification.rid))];
+	const messageIds = [...new Set(notifications.map((notification) => notification.messageId))];
+
+	const [subscriptions, messageReads] = await Promise.all([
+		Subscriptions.findByUserIdAndRoomIds(userId, roomIds, { projection: { rid: 1, ls: 1 } }).toArray(),
+		MessageReads.find({ userId, tmid: { $in: messageIds } }, { projection: { tmid: 1, ls: 1 } }).toArray(),
+	]);
+
+	const roomLastSeenById = new Map(subscriptions.map((subscription) => [subscription.rid, subscription.ls]));
+	const threadLastSeenById = new Map(messageReads.map((read) => [read.tmid, read.ls]));
+
+	return notifications.map((notification) => ({
+		...notification,
+		isUnread: isNotificationUnread({
+			receivedAt: notification.receivedAt,
+			roomLastSeen: roomLastSeenById.get(notification.rid),
+			threadLastSeen: threadLastSeenById.get(notification.messageId),
+		}),
+	})) as ActivityNotification[];
+};
 
 export const createActivityNotification = async ({
 	uid,
@@ -38,18 +100,27 @@ export const createActivityNotification = async ({
 		roomName,
 	};
 
+	let rootMessage = message as any;
 	let rootMessageId = message.tmid ?? message._id;
+
+	if (message.tmid) {
+		const parent = await Messages.findOneById(message.tmid, { projection: { _id: 1, u: 1, msg: 1 } });
+		if (parent) {
+			rootMessage = parent;
+		}
+	}
 
 	// Handle discussions
 	if (room.prid) {
 		const [discussionMessage, parentRoom] = await Promise.all([
-			Messages.findOne({ drid: room._id }, { projection: { _id: 1 } }),
+			Messages.findOne({ drid: room._id }, { projection: { _id: 1, u: 1, msg: 1 } }),
 			Rooms.findOneById(room.prid),
 		]);
 
 		// discussion thread root
 		if (discussionMessage?._id) {
 			rootMessageId = discussionMessage._id;
+			rootMessage = discussionMessage;
 		}
 
 		// show parent channel in UI
@@ -68,6 +139,14 @@ export const createActivityNotification = async ({
 		{ userId: uid, messageId: rootMessageId },
 		{
 			$set: {
+				receivedAt: new Date(),
+				isThreadReply: hasReplyToThread,
+			},
+			$setOnInsert: {
+				_id: docId,
+				userId: uid,
+				messageId: rootMessageId,
+
 				rid: navigationRoom.rid,
 				roomType: navigationRoom.roomType,
 				roomName: navigationRoom.roomName,
@@ -76,19 +155,12 @@ export const createActivityNotification = async ({
 				displayRoomName: displayRoom.roomName,
 
 				sender: {
-					username: sender.username,
-					name: sender.name,
+					username: rootMessage.u?.username ?? sender.username,
+					name: rootMessage.u?.name ?? sender.name,
 				},
 
-				text: String(text ?? '').slice(0, 300),
+				text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
 				type,
-				receivedAt: new Date(),
-				seen: false,
-			},
-			$setOnInsert: {
-				_id: docId,
-				userId: uid,
-				messageId: rootMessageId,
 			},
 		},
 	);
@@ -96,7 +168,8 @@ export const createActivityNotification = async ({
 	const notificationDoc = await ActivityNotificationsCollection.findOneAsync({ _id: docId });
 
 	if (notificationDoc) {
-		void api.broadcast('notify.activity-notification', uid, notificationDoc);
+		const [hydratedNotification] = await hydrateActivityNotificationsReadState({ userId: uid, notifications: [notificationDoc] });
+		void api.broadcast('notify.activity-notification', uid, hydratedNotification ?? notificationDoc);
 	}
 };
 
