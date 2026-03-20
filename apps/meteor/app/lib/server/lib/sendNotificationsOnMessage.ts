@@ -364,6 +364,8 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 		const isThread = !!message.tmid && !message.tshow;
 		const isUnfollowedThread = isThread && !hasMentionToUser && !hasReplyToThread;
 
+		const isHighlighted = messageContainsHighlight(message, subscription.userHighlights);
+
 		let shouldCreateActivityNotification = false;
 
 		if (subscription.u._id !== sender._id) {
@@ -373,7 +375,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 			if (desktopNotifications === 'all' || (!desktopNotifications && defaultPreferences === 'all')) {
 				shouldCreateActivityNotification = true;
 			} else if (desktopNotifications === 'mentions' || (!desktopNotifications && defaultPreferences === 'mentions')) {
-				shouldCreateActivityNotification = hasMentionToUser || hasMentionToAll || hasMentionToHere || room.t === 'd';
+				shouldCreateActivityNotification = hasMentionToUser || hasMentionToAll || hasMentionToHere || room.t === 'd' || isHighlighted;
 			} else if (desktopNotifications === 'nothing' || (!desktopNotifications && defaultPreferences === 'nothing')) {
 				shouldCreateActivityNotification = false;
 			}
@@ -381,13 +383,14 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 			if (
 				!hasMentionToUser &&
 				!hasReplyToThread &&
+				!isHighlighted &&
 				subscription.muteGroupMentions &&
 				(hasMentionToAll || hasMentionToHere)
 			) {
 				shouldCreateActivityNotification = false;
 			}
 
-			if (hasMentionToUser || hasReplyToThread) {
+			if (hasMentionToUser || hasReplyToThread || isHighlighted) {
 				if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
 					shouldCreateActivityNotification = true;
 				}
@@ -405,6 +408,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 				hasMentionToUser,
 				hasReplyToThread,
 				isUnfollowedThread,
+				isHighlighted,
 			});
 		}
 

@@ -73,6 +73,7 @@ export const createActivityNotification = async ({
 	hasMentionToUser,
 	hasReplyToThread,
 	isUnfollowedThread,
+	isHighlighted,
 }: {
 	uid: string;
 	message: Pick<IMessage, '_id' | 'tmid' | 't'>;
@@ -83,8 +84,9 @@ export const createActivityNotification = async ({
 	hasMentionToUser: boolean;
 	hasReplyToThread: boolean;
 	isUnfollowedThread?: boolean;
+	isHighlighted?: boolean;
 }): Promise<void> => {
-	const type: 'message' | 'mention' = hasMentionToUser || hasReplyToThread ? 'mention' : 'message';
+	const type: 'message' | 'mention' | 'highlight' = hasMentionToUser ? 'mention' : isHighlighted ? 'highlight' : hasReplyToThread ? 'mention' : 'message';
 
 	let navigationRoom = { rid: room._id, roomType: room.t, roomName };
 	let rootMessage = message as any;

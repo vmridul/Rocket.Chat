@@ -14,7 +14,7 @@ import {
 	Box,
 } from '@rocket.chat/fuselage';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from '@rocket.chat/ui-contexts';
+import { useRouter, useUserPreference } from '@rocket.chat/ui-contexts';
 import { RoomAvatar, UserAvatar } from '@rocket.chat/ui-avatar';
 import { useUserDisplayName } from '@rocket.chat/ui-client';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,8 @@ import { goToRoomById } from '/client/lib/utils/goToRoomById';
 import RoomMessageContent from '/client/components/message/variants/room/RoomMessageContent';
 import { useEndpoint } from '@rocket.chat/ui-contexts';
 import type { ActivityNotification } from '../../hooks/useActivityNotifications';
+import { MessageListContext, messageListContextDefaultValue } from '/client/components/message/list/MessageListContext';
+import { getRegexHighlight, getRegexHighlightUrl } from '/app/highlight-words/client/helper';
 
 type ActivityItemProps = {
 	notification: ActivityNotification;
@@ -60,7 +62,7 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 
 	const messageTime = useMemo(() => hydratedMessage?.ts || notification.receivedAt, [hydratedMessage?.ts, notification.receivedAt]);
 	const readMetaTextStyle = !notification.isUnread ? { opacity: 0.7 } : undefined;
-	
+
 	let metaActionText = notification.isThreadReply ? 'new reply in thread in' : t('sent_a_message_in');
 	let metaActionTextDm = notification.isThreadReply ? 'new reply in thread' : t('sent_you_a_message');
 	let roomLabel = notification.roomType === 'd' ? notification.roomName || t('Direct_Message') : `#${notification.roomName || ''}`;
@@ -68,6 +70,14 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 	if (notification.isDiscussion) {
 		metaActionText = notification.isDiscussionReply ? 'new message in' : 'new discussion created';
 		roomLabel = notification.roomName || '';
+	}
+
+	if (notification.type === 'mention') {
+		metaActionText = notification.isThreadReply ? 'mentioned you in a thread in' : 'mentioned you in';
+		metaActionTextDm = notification.isThreadReply ? 'mentioned you in a thread' : 'mentioned you';
+	} else if (notification.type === 'highlight') {
+		metaActionText = notification.isThreadReply ? 'highlighted word in a thread in' : 'highlighted word in';
+		metaActionTextDm = notification.isThreadReply ? 'highlighted word in a thread' : 'highlighted word';
 	}
 
 	const handleJump = () => {
@@ -78,6 +88,27 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 		e.stopPropagation();
 		onClear(notification._id);
 	};
+
+	const isMentionOrHighlight = notification.type === 'mention' || notification.type === 'highlight';
+
+	const rawHighlights = useUserPreference<string[]>('highlights');
+	const highlights = useMemo(
+		() =>
+			rawHighlights
+				?.map((str) => str.trim())
+				.filter(Boolean)
+				.map((highlight) => ({
+					highlight,
+					regex: getRegexHighlight(highlight),
+					urlRegex: getRegexHighlightUrl(highlight),
+				})),
+		[rawHighlights],
+	);
+
+	const messageListContextValue = useMemo(
+		() => ({ ...messageListContextDefaultValue, highlights }),
+		[highlights],
+	);
 
 	return (
 		<Box>
@@ -112,7 +143,9 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 						</MessageHeader>
 					)}
 					{hydratedMessage ? (
-						<RoomMessageContent message={hydratedMessage} unread={false} mention={false} all={false} showThreadMetrics />
+						<MessageListContext.Provider value={messageListContextValue}>
+							<RoomMessageContent message={hydratedMessage} unread={false} mention={isMentionOrHighlight} all={false} showThreadMetrics />
+						</MessageListContext.Provider>
 					) : (
 						<MessageBody>{notification.text}</MessageBody>
 					)}
