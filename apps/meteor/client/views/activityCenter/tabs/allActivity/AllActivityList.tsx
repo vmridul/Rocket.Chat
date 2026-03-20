@@ -62,6 +62,11 @@ const AllActivityList = (): ReactElement => {
 				const matchesUsername = selectedUsernames.length === 0 || selectedUsernames.includes(notification.sender.username || '');
 				const matchesRoom = selectedRoomIds.length === 0 || selectedRoomIds.includes(notification.rid);
 
+				const matchesUnread =
+					filtersQuery.unread === 'all' ||
+					(filtersQuery.unread === 'unread' && notification.isUnread) ||
+					(filtersQuery.unread === 'read' && !notification.isUnread);
+
 				let matchesDate = true;
 				if (filtersQuery.fromDate || filtersQuery.toDate) {
 					const notificationTime = new Date(notification.receivedAt).getTime();
@@ -77,10 +82,19 @@ const AllActivityList = (): ReactElement => {
 					}
 				}
 
-				return matchesSearch && matchesRoomType && matchesUsername && matchesRoom && matchesDate;
+				return matchesSearch && matchesRoomType && matchesUsername && matchesRoom && matchesDate && matchesUnread;
 			}),
 		[notifications, normalizedSearch, filtersQuery],
 	);
+
+	const countsByDate = useMemo(() => {
+		const counts = new Map<string, number>();
+		filteredNotifications.forEach((notification) => {
+			const dateKey = new Date(notification.receivedAt).toDateString();
+			counts.set(dateKey, (counts.get(dateKey) || 0) + 1);
+		});
+		return counts;
+	}, [filteredNotifications]);
 
 	return (
 		<Box height='100%' display='flex' flexDirection='column'>
@@ -117,7 +131,12 @@ const AllActivityList = (): ReactElement => {
 
 								return (
 									<>
-										{newDay && <MessageDivider>{formatDate(new Date(notification.receivedAt))}</MessageDivider>}
+										{newDay && (
+											<MessageDivider>
+												{formatDate(new Date(notification.receivedAt))}
+												{` \u00B7 ${countsByDate.get(new Date(notification.receivedAt).toDateString())} ${t('activities')}`}
+											</MessageDivider>
+										)}
 										<ActivityItem notification={notification} sequential={false} onClear={clearOne} />
 									</>
 								);

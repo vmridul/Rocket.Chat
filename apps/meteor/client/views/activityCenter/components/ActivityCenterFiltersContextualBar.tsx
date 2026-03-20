@@ -58,6 +58,21 @@ const ActivityCenterFiltersContextualBar = (): ReactElement => {
 					</FieldRow>
 				</Field>
 				<Field>
+					<FieldLabel>{t('Status')}</FieldLabel>
+					<FieldRow>
+						<Select
+							aria-label={t('Filter_By_Status')}
+							options={[
+								['all', t('All')],
+								['unread', t('Unread')],
+								['read', t('Read')],
+							]}
+							value={filtersQuery.unread}
+							onChange={(value) => setFiltersQuery((prev) => ({ ...prev, unread: value as 'all' | 'unread' | 'read' }))}
+						/>
+					</FieldRow>
+				</Field>
+				<Field>
 					<FieldLabel htmlFor={fromDateFieldId}>{t('From')}</FieldLabel>
 					<FieldRow>
 						<InputBox

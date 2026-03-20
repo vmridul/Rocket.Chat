@@ -5,6 +5,7 @@ export type RoomTypeFilter = 'all' | 'c' | 'p' | 'd';
 
 export type ActivityCenterFiltersQuery = {
 	roomType: RoomTypeFilter;
+	unread: 'all' | 'unread' | 'read';
 	fromDate?: string;
 	toDate?: string;
 	usernames?: string[];
@@ -13,6 +14,7 @@ export type ActivityCenterFiltersQuery = {
 
 export const initialValues: ActivityCenterFiltersQuery = {
 	roomType: 'all',
+	unread: 'all',
 	fromDate: '',
 	toDate: '',
 	usernames: [],
