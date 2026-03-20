@@ -364,9 +364,35 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 		const isThread = !!message.tmid && !message.tshow;
 		const isUnfollowedThread = isThread && !hasMentionToUser && !hasReplyToThread;
 
-		const shouldCreateActivityNotification =
-			subscription.u._id !== sender._id &&
-			!(!hasMentionToUser && !hasReplyToThread && subscription.muteGroupMentions && (hasMentionToAll || hasMentionToHere));
+		let shouldCreateActivityNotification = false;
+
+		if (subscription.u._id !== sender._id) {
+			const { desktopNotifications } = subscription;
+			const defaultPreferences = settings.get('Accounts_Default_User_Preferences_desktopNotifications');
+
+			if (desktopNotifications === 'all' || (!desktopNotifications && defaultPreferences === 'all')) {
+				shouldCreateActivityNotification = true;
+			} else if (desktopNotifications === 'mentions' || (!desktopNotifications && defaultPreferences === 'mentions')) {
+				shouldCreateActivityNotification = hasMentionToUser || hasMentionToAll || hasMentionToHere || room.t === 'd';
+			} else if (desktopNotifications === 'nothing' || (!desktopNotifications && defaultPreferences === 'nothing')) {
+				shouldCreateActivityNotification = false;
+			}
+
+			if (
+				!hasMentionToUser &&
+				!hasReplyToThread &&
+				subscription.muteGroupMentions &&
+				(hasMentionToAll || hasMentionToHere)
+			) {
+				shouldCreateActivityNotification = false;
+			}
+
+			if (hasMentionToUser || hasReplyToThread) {
+				if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
+					shouldCreateActivityNotification = true;
+				}
+			}
+		}
 
 		if (shouldCreateActivityNotification) {
 			void createActivityNotification({
