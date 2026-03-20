@@ -372,12 +372,11 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 			const { desktopNotifications } = subscription;
 			const defaultPreferences = settings.get('Accounts_Default_User_Preferences_desktopNotifications');
 
-			if (desktopNotifications === 'all' || (!desktopNotifications && defaultPreferences === 'all')) {
+			if ((desktopNotifications === 'all' || (!desktopNotifications && defaultPreferences === 'all')) && !disableAllMessageNotifications) {
 				shouldCreateActivityNotification = true;
-			} else if (desktopNotifications === 'mentions' || (!desktopNotifications && defaultPreferences === 'mentions')) {
-				shouldCreateActivityNotification = hasMentionToUser || hasMentionToAll || hasMentionToHere || room.t === 'd' || isHighlighted;
-			} else if (desktopNotifications === 'nothing' || (!desktopNotifications && defaultPreferences === 'nothing')) {
-				shouldCreateActivityNotification = false;
+			} else if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
+				shouldCreateActivityNotification =
+					hasMentionToUser || (!disableAllMessageNotifications && (hasMentionToAll || hasMentionToHere)) || room.t === 'd' || isHighlighted;
 			}
 
 			if (
