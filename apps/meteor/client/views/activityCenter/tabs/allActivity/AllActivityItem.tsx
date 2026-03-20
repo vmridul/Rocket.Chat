@@ -22,6 +22,7 @@ import { useFormatTime } from '/client/hooks/useFormatTime';
 import { useFormatDateAndTime } from '/client/hooks/useFormatDateAndTime';
 import { onClientMessageReceived } from '/client/lib/onClientMessageReceived';
 import { mapMessageFromApi } from '/client/lib/utils/mapMessageFromApi';
+import { goToRoomById } from '/client/lib/utils/goToRoomById';
 import RoomMessageContent from '/client/components/message/variants/room/RoomMessageContent';
 import { useEndpoint } from '@rocket.chat/ui-contexts';
 import type { ActivityNotification } from '../../hooks/useActivityNotifications';
@@ -59,16 +60,18 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 
 	const messageTime = useMemo(() => hydratedMessage?.ts || notification.receivedAt, [hydratedMessage?.ts, notification.receivedAt]);
 	const readMetaTextStyle = !notification.isUnread ? { opacity: 0.7 } : undefined;
-	const metaActionText = notification.isThreadReply ? 'new reply in thread in' : t('sent_a_message_in');
-	const metaActionTextDm = notification.isThreadReply ? 'new reply in thread' : t('sent_you_a_message');
-	const roomLabel = notification.roomType === 'd' ? notification.roomName || t('Direct_Message') : `#${notification.roomName || ''}`;
+	
+	let metaActionText = notification.isThreadReply ? 'new reply in thread in' : t('sent_a_message_in');
+	let metaActionTextDm = notification.isThreadReply ? 'new reply in thread' : t('sent_you_a_message');
+	let roomLabel = notification.roomType === 'd' ? notification.roomName || t('Direct_Message') : `#${notification.roomName || ''}`;
+
+	if (notification.isDiscussion) {
+		metaActionText = notification.isDiscussionReply ? 'new message in' : 'new discussion created';
+		roomLabel = notification.roomName || '';
+	}
 
 	const handleJump = () => {
-		router.navigate({
-			name: notification.roomType === 'd' ? 'direct' : notification.roomType === 'p' ? 'group' : 'channel',
-			params: notification.roomType === 'd' ? { rid: notification.rid } : { name: notification.roomName || '' },
-			search: { msg: notification.messageId },
-		});
+		void goToRoomById(notification.rid, { queryParamsOverrides: { msg: notification.messageId } });
 	};
 
 	const handleClear = (e: MouseEvent): void => {
@@ -90,12 +93,12 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 						<MessageHeader>
 							<MessageName>{displayName}</MessageName>
 							<MessageTimestamp title={formatDateAndTime(messageTime)}>{formatTime(messageTime)}</MessageTimestamp>
-							{notification.roomType === 'd' && (
+							{notification.roomType === 'd' && !notification.isDiscussion && (
 								<Box is='span' fontScale='c1' mis={6} color='hint' style={readMetaTextStyle}>
 									{metaActionTextDm}
 								</Box>
 							)}
-							{notification.roomType !== 'd' && (
+							{(notification.roomType !== 'd' || notification.isDiscussion) && (
 								<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
 									<Box is='span' fontScale='c1' mie={6} style={readMetaTextStyle}>
 										{metaActionText}

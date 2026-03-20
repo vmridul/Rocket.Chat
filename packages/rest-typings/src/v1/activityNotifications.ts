@@ -13,6 +13,8 @@ export type ActivityNotificationRecord = {
 	type: 'message' | 'mention';
 	receivedAt: Date | string;
 	isThreadReply?: boolean;
+	isDiscussion?: boolean;
+	isDiscussionReply?: boolean;
 };
 
 export type ActivityNotification = ActivityNotificationRecord & {

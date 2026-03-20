@@ -11,6 +11,7 @@ const getRoomById = memoize((rid: IRoom['_id']) => callWithErrorHandling('getRoo
 export type GoToRoomByIdOptions = {
 	replace?: boolean;
 	routeParamsOverrides?: Record<string, string>;
+	queryParamsOverrides?: Record<string, string>;
 };
 
 export const goToRoomById = async (rid: IRoom['_id'], options: GoToRoomByIdOptions = {}): Promise<void> => {
@@ -19,12 +20,13 @@ export const goToRoomById = async (rid: IRoom['_id'], options: GoToRoomByIdOptio
 	}
 
 	const subscription = Subscriptions.state.find((record) => record.rid === rid);
+	const searchParams = { ...router.getSearchParameters(), ...options.queryParamsOverrides };
 
 	if (subscription) {
-		roomCoordinator.openRouteLink(subscription.t, subscription, router.getSearchParameters(), options);
+		roomCoordinator.openRouteLink(subscription.t, subscription, searchParams, options);
 		return;
 	}
 
 	const room = await getRoomById(rid);
-	roomCoordinator.openRouteLink(room.t, { rid: room._id, ...room }, router.getSearchParameters(), options);
+	roomCoordinator.openRouteLink(room.t, { rid: room._id, ...room }, searchParams, options);
 };

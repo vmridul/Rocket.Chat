@@ -75,7 +75,7 @@ export const createActivityNotification = async ({
 	isUnfollowedThread,
 }: {
 	uid: string;
-	message: Pick<IMessage, '_id' | 'tmid'>;
+	message: Pick<IMessage, '_id' | 'tmid' | 't'>;
 	room: Pick<IRoom, '_id' | 't' | 'prid'>;
 	roomName?: string;
 	sender: Pick<IUser, 'username' | 'name'>;
@@ -86,62 +86,55 @@ export const createActivityNotification = async ({
 }): Promise<void> => {
 	const type: 'message' | 'mention' = hasMentionToUser || hasReplyToThread ? 'mention' : 'message';
 
-	const navigationRoom = {
-		rid: room._id,
-		roomType: room.t,
-		roomName,
-	};
-
-	let displayRoom = {
-		rid: room._id,
-		roomType: room.t,
-		roomName,
-	};
-
+	let navigationRoom = { rid: room._id, roomType: room.t, roomName };
 	let rootMessage = message as any;
 	let rootMessageId = message.tmid ?? message._id;
+	let isDiscussion = false;
+	let isDiscussionReply = false;
 
-	if (message.tmid) {
+	if (message.t === 'discussion-created' && rootMessage.drid) {
+		const discussionRoom = await Rooms.findOneById(rootMessage.drid);
+		if (discussionRoom) {
+			rootMessageId = message._id;
+			isDiscussion = true;
+			navigationRoom = {
+				rid: discussionRoom._id,
+				roomType: discussionRoom.t,
+				roomName: discussionRoom.fname ?? discussionRoom.name,
+			};
+		}
+	} else if (room.prid) {
+		const discussionMessage = await Messages.findOne({ drid: room._id }, { projection: { _id: 1, u: 1, msg: 1 } });
+		if (discussionMessage?._id) {
+			rootMessageId = discussionMessage._id;
+			rootMessage = discussionMessage;
+			isDiscussion = true;
+			isDiscussionReply = true;
+		}
+	} else if (message.tmid) {
 		const parent = await Messages.findOneById(message.tmid, { projection: { _id: 1, u: 1, msg: 1 } });
 		if (parent) {
 			rootMessage = parent;
 		}
 	}
 
-	// Handle discussions
-	if (room.prid) {
-		const [discussionMessage, parentRoom] = await Promise.all([
-			Messages.findOne({ drid: room._id }, { projection: { _id: 1, u: 1, msg: 1 } }),
-			Rooms.findOneById(room.prid),
-		]);
-
-		// discussion thread root
-		if (discussionMessage?._id) {
-			rootMessageId = discussionMessage._id;
-			rootMessage = discussionMessage;
-		}
-
-		// show parent channel in UI
-		if (parentRoom) {
-			displayRoom = {
-				rid: parentRoom._id,
-				roomType: parentRoom.t,
-				roomName: parentRoom.fname ?? parentRoom.name,
-			};
-		}
-	}
-
 	const docId = `${uid}:${rootMessageId}`;
 
+	const updatePayload = {
+		$set: {
+			receivedAt: new Date(),
+			isThreadReply: !!message.tmid,
+			isDiscussion,
+			isDiscussionReply,
+			rid: navigationRoom.rid,
+			roomType: navigationRoom.roomType,
+			roomName: navigationRoom.roomName,
+		},
+	};
+
 	if (isUnfollowedThread) {
-		const result = await ActivityNotificationsCollection.updateAsync(
-			{ userId: uid, messageId: rootMessageId },
-			{
-				$set: {
-					isThreadReply: true,
-				},
-			},
-		);
+		delete (updatePayload.$set as any).receivedAt;
+		const result = await ActivityNotificationsCollection.updateAsync({ userId: uid, messageId: rootMessageId }, updatePayload);
 
 		if (result === 0) {
 			return;
@@ -150,27 +143,15 @@ export const createActivityNotification = async ({
 		await ActivityNotificationsCollection.upsertAsync(
 			{ userId: uid, messageId: rootMessageId },
 			{
-				$set: {
-					receivedAt: new Date(),
-					isThreadReply: !!message.tmid,
-				},
+				...updatePayload,
 				$setOnInsert: {
 					_id: docId,
 					userId: uid,
 					messageId: rootMessageId,
-
-					rid: navigationRoom.rid,
-					roomType: navigationRoom.roomType,
-					roomName: navigationRoom.roomName,
-					displayRid: displayRoom.rid,
-					displayRoomType: displayRoom.roomType,
-					displayRoomName: displayRoom.roomName,
-
 					sender: {
 						username: rootMessage.u?.username ?? sender.username,
 						name: rootMessage.u?.name ?? sender.name,
 					},
-
 					text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
 					type,
 				},
