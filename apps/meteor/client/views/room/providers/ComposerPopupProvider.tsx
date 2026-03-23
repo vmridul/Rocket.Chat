@@ -3,7 +3,7 @@ import { isOmnichannelRoom } from '@rocket.chat/core-typings';
 import { useLocalStorage } from '@rocket.chat/fuselage-hooks';
 import { escapeRegExp } from '@rocket.chat/string-helpers';
 import type { SubscriptionWithRoom } from '@rocket.chat/ui-contexts';
-import { useMethod, useSetting, useUserId, useUserPreference } from '@rocket.chat/ui-contexts';
+import { useMethod, useSetting, useUserId, useUserPreference, useEndpoint } from '@rocket.chat/ui-contexts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -27,6 +27,9 @@ import type { ComposerPopupContextValue } from '../contexts/ComposerPopupContext
 import { ComposerPopupContext, createMessageBoxPopupConfig } from '../contexts/ComposerPopupContext';
 import useCannedResponsesQuery from './hooks/useCannedResponsesQuery';
 import { pipe } from '../../../lib/cachedStores/pipe';
+
+import ComposerBoxPopupCustomMentionGroup from '../composer/ComposerBoxPopupCustomMentionGroup';
+import type { ComposerBoxPopupCustomMentionGroupProps } from '../composer/ComposerBoxPopupCustomMentionGroup';
 
 export type CannedResponse = { _id: string; shortcut: string; text: string };
 
@@ -84,6 +87,8 @@ const ComposerPopupProvider = ({ children, room }: ComposerPopupProviderProps) =
 	const uid = useUserId();
 	const call = useMethod('getSlashCommandPreviews');
 
+	const getCustomMentionGroups = useEndpoint('GET', '/v1/custom-mentions.groups.list');
+
 	const value: ComposerPopupContextValue = useMemo(() => {
 		return [
 			createMessageBoxPopupConfig({
@@ -103,6 +108,7 @@ const ComposerPopupProvider = ({ children, room }: ComposerPopupProviderProps) =
 						.map((u) => ({
 							...u,
 							suggestion: true,
+							sort: 2,
 						}));
 
 					if (!filterRegex || filterRegex.test('all')) {
@@ -125,7 +131,26 @@ const ComposerPopupProvider = ({ children, room }: ComposerPopupProviderProps) =
 						});
 					}
 
-					return [...roomMessageUsers, ...items];
+					// Merge custom mention groups
+					let customGroups: ComposerBoxPopupCustomMentionGroupProps[] = [];
+					try {
+						const result = await getCustomMentionGroups({ count: '20', offset: '0' } as any);
+						const groups = (result as any).groups ?? [];
+						customGroups = groups
+							.filter((g: any) => !filterRegex || filterRegex.test(g.name))
+							.map((g: any) => ({
+								_id: g._id,
+								name: g.name,
+								description: g.description,
+								userIds: g.userIds,
+								isCustomMentionGroup: true as const,
+								sort: 3,
+							}));
+					} catch {
+						// silently fail if user has no permission
+					}
+
+					return [...customGroups, ...roomMessageUsers, ...items].sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0));
 				},
 				getItemsFromServer: async (filter: string) => {
 					const filterRegex = filter && new RegExp(escapeRegExp(filter), 'i');
@@ -149,12 +174,25 @@ const ComposerPopupProvider = ({ children, room }: ComposerPopupProviderProps) =
 							status,
 							avatarETag,
 							outside,
-							sort: 3,
+							sort: 2,
 						};
 					});
 				},
-				getValue: (item) => (item.username.startsWith('@') ? item.username.substring(1) : item.username),
-				renderItem: ({ item }) => <ComposerBoxPopupUser {...item} />,
+				getValue: (item) => {
+					if ('isCustomMentionGroup' in item && (item as any).isCustomMentionGroup === true) {
+						return (item as any).name as string;
+					}
+					const userItem = item as unknown as ComposerBoxPopupUserProps;
+					return userItem.username.startsWith('@') ? userItem.username.substring(1) : userItem.username;
+				},
+				renderItem: ({ item }) => {
+					if ('isCustomMentionGroup' in item && (item as any).isCustomMentionGroup === true) {
+						const groupItem = item as unknown as ComposerBoxPopupCustomMentionGroupProps;
+						return <ComposerBoxPopupCustomMentionGroup {...groupItem} />;
+					}
+					const userItem = item as unknown as ComposerBoxPopupUserProps;
+					return <ComposerBoxPopupUser {...userItem} />;
+				},
 			}),
 			createMessageBoxPopupConfig<ComposerBoxPopupRoomProps>({
 				trigger: '#',
@@ -391,6 +429,7 @@ const ComposerPopupProvider = ({ children, room }: ComposerPopupProviderProps) =
 		encrypted,
 		i18n,
 		isOmnichannel,
+		getCustomMentionGroups,
 		previewTitle,
 		queryClient,
 		recentEmojis,

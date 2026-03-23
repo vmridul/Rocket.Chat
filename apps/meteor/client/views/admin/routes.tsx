@@ -12,6 +12,10 @@ declare module '@rocket.chat/ui-contexts' {
 			pathname: `/admin/sounds${`/${string}` | ''}${`/${string}` | ''}`;
 			pattern: '/admin/sounds/:context?/:id?';
 		};
+		'custom-mention-groups': {
+			pathname: `/admin/custom-mention-groups${`/${string}` | ''}${`/${string}` | ''}`;
+			pattern: '/admin/custom-mention-groups/:context?/:id?';
+		};
 		'info': {
 			pathname: '/admin/info';
 			pattern: '/admin/info';
@@ -120,6 +124,11 @@ export const registerAdminRoute = createRouteGroup(
 registerAdminRoute('/sounds/:context?/:id?', {
 	name: 'custom-sounds',
 	component: lazy(() => import('./customSounds/CustomSoundsRoute')),
+});
+
+registerAdminRoute('/custom-mention-groups/:context?/:id?', {
+	name: 'custom-mention-groups',
+	component: lazy(() => import('./customMentions/CustomMentionGroupsRoute')),
 });
 
 /** @deprecated in favor of `/workspace` route, this is a fallback to work in Mobile app, should be removed in the next major  */

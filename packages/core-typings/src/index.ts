@@ -132,4 +132,6 @@ export * from './Abac';
 export * from './ServerAudit/IAuditServerAbacAction';
 export * from './ServerAudit/IAuditUserChangedEvent';
 
+export * from './ICustomMentionGroup';
+
 export { schemas } from './Ajv';

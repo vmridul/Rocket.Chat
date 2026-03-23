@@ -22,9 +22,18 @@ const UserMentionElement = ({ mention }: UserMentionElementProps): ReactElement 
 	const handleClick = useMemo(() => (resolved ? onUserMentionClick?.(resolved) : undefined), [resolved, onUserMentionClick]);
 	const buttonProps = useButtonPattern((e) => handleClick?.(e));
 
+	const title = useMemo(() => {
+		if (mention === 'all') return t('Mentions_all_room_members');
+		if (mention === 'here') return t('Mentions_online_room_members');
+		if ((resolved as any)?.type === 'group')
+			return `${t('Mentions_Group')} · ${(resolved as any).resolvedUsernames?.length} ${t('Members')}`;
+		if (resolved?._id === ownUserId) return t('Mentions_you');
+		return t('Mentions_user');
+	}, [mention, resolved, ownUserId, t]);
+
 	if (mention === 'all') {
 		return (
-			<MessageHighlight title={t('Mentions_all_room_members')} variant='relevant'>
+			<MessageHighlight title={title} variant='relevant'>
 				{handleUserMention('all', showMentionSymbol)}
 			</MessageHighlight>
 		);
@@ -32,7 +41,7 @@ const UserMentionElement = ({ mention }: UserMentionElementProps): ReactElement 
 
 	if (mention === 'here') {
 		return (
-			<MessageHighlight title={t('Mentions_online_room_members')} variant='relevant'>
+			<MessageHighlight title={title} variant='relevant'>
 				{handleUserMention('here', showMentionSymbol)}
 			</MessageHighlight>
 		);
@@ -44,8 +53,8 @@ const UserMentionElement = ({ mention }: UserMentionElementProps): ReactElement 
 
 	return (
 		<MessageHighlight
-			variant={resolved._id === ownUserId ? 'critical' : 'other'}
-			title={resolved._id === ownUserId ? t('Mentions_you') : t('Mentions_user')}
+			variant={(resolved as any)?.type === 'group' ? 'relevant' : resolved._id === ownUserId ? 'critical' : 'other'}
+			title={title}
 			clickable
 			{...buttonProps}
 			{...triggerProps}

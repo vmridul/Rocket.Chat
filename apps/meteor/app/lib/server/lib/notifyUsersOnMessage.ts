@@ -30,13 +30,13 @@ export async function getMentions(message: IMessage): Promise<{ toAll: boolean; 
 	const toAll = mentions.some(({ _id }) => _id === 'all');
 	const toHere = mentions.some(({ _id }) => _id === 'here');
 
-	const teamsMentions = mentions.filter((mention) => mention.type === 'team');
+	const otherMentions = mentions.filter((mention) => mention.type === 'team' || mention.type === 'group');
 	const filteredMentions = mentions
 		.filter((mention) => !mention.type || mention.type === 'user')
 		.filter(({ _id }) => _id !== senderId && !['all', 'here'].includes(_id))
 		.map(({ _id }) => _id);
 
-	const mentionIds = await callbacks.run('beforeGetMentions', filteredMentions, teamsMentions);
+	const mentionIds = await callbacks.run('beforeGetMentions', filteredMentions, otherMentions);
 
 	return {
 		toAll,

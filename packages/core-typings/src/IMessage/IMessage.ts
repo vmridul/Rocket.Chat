@@ -109,7 +109,7 @@ export type TokenExtra = {
 };
 
 export type MessageMention = {
-	type?: 'user' | 'team'; // mentions for 'all' and 'here' doesn't have type
+	type?: 'user' | 'team' | 'group'; // mentions for 'all' and 'here' doesn't have type
 	_id: string;
 	name?: string;
 	username?: string;
@@ -147,6 +147,13 @@ export interface IMessage extends IRocketChatRecord {
 	tshow?: boolean;
 	ts: Date;
 	mentions?: MessageMention[];
+	customMentions?: {
+		groupId: string;
+		groupName: string;
+		description?: string;
+		resolvedUserIds: string[];
+		resolvedUsernames: string[];
+	}[];
 
 	groupable?: boolean;
 	channels?: Pick<IRoom, '_id' | 'name'>[];

@@ -69,6 +69,7 @@ const RoomMessageContent = ({ message, unread, all, mention, searchText }: RoomM
 							mentions={normalizedMessage.mentions}
 							channels={normalizedMessage.channels}
 							searchText={searchText}
+							customMentions={normalizedMessage.customMentions}
 						/>
 					)}
 				</>

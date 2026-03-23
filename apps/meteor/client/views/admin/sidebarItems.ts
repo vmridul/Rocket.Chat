@@ -132,6 +132,12 @@ export const {
 		permissionGranted: (): boolean => hasPermission('manage-emoji'),
 	},
 	{
+		href: '/admin/custom-mention-groups',
+		i18nLabel: 'Custom_Mentions',
+		icon: 'at',
+		permissionGranted: (): boolean => hasPermission('view-custom-mention-groups'),
+	},
+	{
 		href: '/admin/feature-preview',
 		i18nLabel: 'Feature_preview',
 		icon: 'flask',

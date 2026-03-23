@@ -9,15 +9,22 @@ import GazzodownText from '../GazzodownText';
 
 type MessageContentBodyProps = Pick<MessageWithMdEnforced, 'mentions' | 'channels' | 'md'> & {
 	searchText?: string;
+	customMentions?: {
+		groupId: string;
+		groupName: string;
+		description?: string;
+		resolvedUserIds: string[];
+		resolvedUsernames: string[];
+	}[];
 } & ComponentProps<typeof MessageBody>;
 
-const MessageContentBody = ({ mentions, channels, md, searchText, ...props }: MessageContentBodyProps) => {
+const MessageContentBody = ({ mentions, channels, md, searchText, customMentions, ...props }: MessageContentBodyProps) => {
 	const { t } = useTranslation();
 
 	return (
 		<MessageBody role='document' aria-roledescription={t('message_body')} dir='auto' {...props}>
 			<Suspense fallback={<Skeleton />}>
-				<GazzodownText channels={channels} mentions={mentions} searchText={searchText}>
+				<GazzodownText channels={channels} mentions={mentions} searchText={searchText} customMentions={customMentions}>
 					<Markup tokens={md} />
 				</GazzodownText>
 			</Suspense>

@@ -57,7 +57,12 @@ const ThreadMessageContent = ({ message }: ThreadMessageContentProps): ReactElem
 			{!normalizedMessage.blocks?.length && !!normalizedMessage.md?.length && (
 				<>
 					{(!encrypted || normalizedMessage.e2e === 'done') && (
-						<MessageContentBody md={normalizedMessage.md} mentions={normalizedMessage.mentions} channels={normalizedMessage.channels} />
+						<MessageContentBody
+							md={normalizedMessage.md}
+							mentions={normalizedMessage.mentions}
+							channels={normalizedMessage.channels}
+							customMentions={normalizedMessage.customMentions}
+						/>
 					)}
 				</>
 			)}

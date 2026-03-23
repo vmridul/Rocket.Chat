@@ -29,6 +29,8 @@ import { BeforeSaveSpotify } from './hooks/BeforeSaveSpotify';
 import { closeUnclosedCodeBlock } from '../../../lib/utils/closeUnclosedCodeBlock';
 import { shouldBreakInVersion } from '../../lib/shouldBreakInVersion';
 
+import { resolveCustomMentions } from '../../../app/lib/server/lib/resolveCustomMentions';
+
 const disableMarkdownParser = ['yes', 'true'].includes(String(process.env.DISABLE_MESSAGE_PARSER).toLowerCase());
 
 export class MessageService extends ServiceClassInternal implements IMessageService {
@@ -258,7 +260,6 @@ export class MessageService extends ServiceClassInternal implements IMessageServ
 				useRealName: settings.get<boolean>('UI_Use_Real_Name'),
 			},
 		});
-
 		if (!this.isEditedOrOld(message)) {
 			await Promise.all([
 				this.checkMAC.isWithinLimits({ message, room }),
@@ -266,6 +267,8 @@ export class MessageService extends ServiceClassInternal implements IMessageServ
 				this.preventMention.preventMention({ message, user, mention: 'here', permission: 'mention-here' }),
 			]);
 		}
+
+		message = await resolveCustomMentions(message, user);
 
 		return message;
 	}

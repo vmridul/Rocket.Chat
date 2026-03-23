@@ -1,16 +1,20 @@
-import type { IRoom } from '@rocket.chat/core-typings';
+import { Box } from '@rocket.chat/fuselage';
 import { useLocalStorage } from '@rocket.chat/fuselage-hooks';
 import type { ChannelMention, UserMention } from '@rocket.chat/gazzodown';
 import { MarkupInteractionContext } from '@rocket.chat/gazzodown';
 import { escapeRegExp } from '@rocket.chat/string-helpers';
-import { useLayout, useRouter, useUserPreference, useUserId, useUserCard } from '@rocket.chat/ui-contexts';
+import { GenericModal } from '@rocket.chat/ui-client';
+import { UserAvatar } from '@rocket.chat/ui-avatar';
+import { useLayout, useRouter, useUserPreference, useUserId, useUserCard, useSetModal } from '@rocket.chat/ui-contexts';
 import type { UIEvent } from 'react';
 import { useCallback, memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { detectEmoji } from '../lib/utils/detectEmoji';
 import { fireGlobalEvent } from '../lib/utils/fireGlobalEvent';
 import { useMessageListHighlights, useMessageListShowRealName } from './message/list/MessageListContext';
 import { useGoToRoom } from '../views/room/hooks/useGoToRoom';
+import { IRoom } from '@rocket.chat/core-typings';
 
 type GazzodownTextProps = {
 	children: JSX.Element;
@@ -22,13 +26,22 @@ type GazzodownTextProps = {
 	}[];
 	channels?: Pick<IRoom, '_id' | 'name'>[];
 	searchText?: string;
+	customMentions?: {
+		groupId: string;
+		groupName: string;
+		description?: string;
+		resolvedUserIds: string[];
+		resolvedUsernames: string[];
+	}[];
 };
 
-const GazzodownText = ({ mentions, channels, searchText, children }: GazzodownTextProps) => {
+const GazzodownText = ({ mentions, channels, searchText, children, customMentions }: GazzodownTextProps) => {
+	const { t } = useTranslation();
 	const [userLanguage] = useLocalStorage('userLanguage', 'en');
 
 	const highlights = useMessageListHighlights();
 	const { triggerProps, openUserCard } = useUserCard();
+	const setModal = useSetModal();
 
 	const highlightRegex = useMemo(() => {
 		if (!highlights?.length) {
@@ -63,6 +76,19 @@ const GazzodownText = ({ mentions, channels, searchText, children }: GazzodownTe
 				return undefined;
 			}
 
+			// Check if this mention matches a custom mention group
+			const customGroup = customMentions?.find((g) => g.groupName === mention);
+			if (customGroup) {
+				// Return a synthetic mention object so gazzodown highlights it
+				return {
+					_id: customGroup.groupId,
+					username: customGroup.groupName,
+					name: customGroup.groupName,
+					type: 'group' as const,
+					resolvedUsernames: customGroup.resolvedUsernames,
+				};
+			}
+
 			const normalizedMention = mention.startsWith('@') ? mention.substring(1) : mention;
 			const filterUser = ({ username, type }: UserMention) => {
 				if (!username || type === 'team') return false;
@@ -73,21 +99,48 @@ const GazzodownText = ({ mentions, channels, searchText, children }: GazzodownTe
 
 			return mentions?.find((mention) => filterUser(mention) || filterTeam(mention));
 		},
-		[mentions],
+		[mentions, customMentions],
 	);
 
 	const onUserMentionClick = useCallback(
-		({ username }: UserMention) => {
-			if (!username) {
+		(mention: UserMention) => {
+			if (!mention.username) {
 				return;
+			}
+
+			if ((mention.type as any) === 'group') {
+				const customGroup = customMentions?.find((g) => g.groupName === mention.username);
+				if (customGroup) {
+					return (event: UIEvent): void => {
+						event.stopPropagation();
+						setModal(
+							<GenericModal
+								title={`${customGroup.groupName} · ${customGroup.resolvedUsernames.length} ${t('Members')}`}
+								icon={null}
+								onConfirm={() => setModal(null)}
+								onClose={() => setModal(null)}
+								confirmText={t('Close')}
+							>
+								<Box is='ul' style={{ listStyle: 'none', padding: 0 }}>
+									{customGroup.resolvedUsernames.map((username) => (
+										<Box is='li' key={username} display='flex' alignItems='center' mb={8}>
+											<UserAvatar size='x24' username={username} />
+											<Box marginInlineStart={8}>{username}</Box>
+										</Box>
+									))}
+								</Box>
+							</GenericModal>,
+						);
+					};
+				}
 			}
 
 			return (event: UIEvent): void => {
 				event.stopPropagation();
-				openUserCard(event, username);
+				openUserCard(event, mention.username!);
 			};
 		},
-		[openUserCard],
+		[openUserCard, customMentions, setModal, t],
 	);
 
 	const goToRoom = useGoToRoom();
