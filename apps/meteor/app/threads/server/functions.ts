@@ -15,12 +15,13 @@ export async function reply({ tmid }: { tmid?: string }, message: IMessage, pare
 
 	const { rid, ts, u } = message;
 
-	const { toAll, toHere, mentionIds } = await getMentions(message);
+	const { toAll, toHere, mentionIds, groupMentionIds } = await getMentions(message);
 
+	const allMentionIds = [...new Set([...mentionIds, ...groupMentionIds])];
 	const addToReplies = [
 		...new Set([
 			...followers,
-			...mentionIds,
+			...allMentionIds,
 			...(Array.isArray(parentMessage.replies) && parentMessage.replies.length ? [u._id] : [parentMessage.u._id, u._id]),
 		]),
 	];
@@ -32,7 +33,7 @@ export async function reply({ tmid }: { tmid?: string }, message: IMessage, pare
 		Messages.getThreadFollowsByThreadId(tmid),
 	]);
 
-	const threadFollowersUids = threadFollowers?.filter((userId) => userId !== u._id && !mentionIds.includes(userId)) || [];
+	const threadFollowersUids = threadFollowers?.filter((userId) => userId !== u._id && !allMentionIds.includes(userId)) || [];
 
 	// Notify everyone involved in the thread
 	const notifyOptions = toAll || toHere ? { groupMention: true } : {};

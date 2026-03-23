@@ -1568,6 +1568,33 @@ export class SubscriptionsRaw extends BaseRaw<ISubscription> implements ISubscri
 		return this.updateMany(query, update);
 	}
 
+	incGroupMentionsAndUnreadForRoomIdAndUserIds(
+		roomId: IRoom['_id'],
+		userIds: IUser['_id'][],
+		incGroup = 1,
+		incUnread = 1,
+	): Promise<UpdateResult | Document> {
+		const query = {
+			'rid': roomId,
+			'u._id': {
+				$in: userIds,
+			},
+		};
+
+		const update: UpdateFilter<ISubscription> = {
+			$set: {
+				alert: true,
+				open: true,
+			},
+			$inc: {
+				unread: incUnread,
+				groupMentions: incGroup,
+			},
+		};
+
+		return this.updateMany(query, update);
+	}
+
 	ignoreUser({ _id, ignoredUser: ignored, ignore = true }: { _id: string; ignoredUser: string; ignore?: boolean }): Promise<UpdateResult> {
 		const query = {
 			_id,

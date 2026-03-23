@@ -13,7 +13,9 @@ import { callbacks } from '../../../../server/lib/callbacks';
 import { settings } from '../../../settings/server';
 import { messageContainsHighlight } from '../functions/notifications/messageContainsHighlight';
 
-export async function getMentions(message: IMessage): Promise<{ toAll: boolean; toHere: boolean; mentionIds: string[] }> {
+export async function getMentions(
+	message: IMessage,
+): Promise<{ toAll: boolean; toHere: boolean; mentionIds: string[]; groupMentionIds: string[] }> {
 	const {
 		mentions,
 		u: { _id: senderId },
@@ -24,24 +26,40 @@ export async function getMentions(message: IMessage): Promise<{ toAll: boolean; 
 			toAll: false,
 			toHere: false,
 			mentionIds: [],
+			groupMentionIds: [],
 		};
 	}
 
 	const toAll = mentions.some(({ _id }) => _id === 'all');
 	const toHere = mentions.some(({ _id }) => _id === 'here');
 
+	// Separate group mentions (custom mention groups) from other mentions
+	const groupMentions = mentions.filter((mention) => mention.type === 'group');
 	const otherMentions = mentions.filter((mention) => mention.type === 'team' || mention.type === 'group');
+
 	const filteredMentions = mentions
 		.filter((mention) => !mention.type || mention.type === 'user')
 		.filter(({ _id }) => _id !== senderId && !['all', 'here'].includes(_id))
 		.map(({ _id }) => _id);
 
-	const mentionIds = await callbacks.run('beforeGetMentions', filteredMentions, otherMentions);
+	// Get expanded mentions from callback (for regular user mentions and team mentions)
+	const nonGroupOtherMentions = otherMentions.filter((mention) => mention.type !== 'group');
+	const expandedMentionIds = await callbacks.run('beforeGetMentions', filteredMentions, nonGroupOtherMentions);
+
+	// Get expanded user IDs from custom group mentions
+	let groupMentionIds: string[] = [];
+	if (groupMentions.length > 0) {
+		const groupIds = groupMentions.map((m) => m._id);
+		const { CustomMentionGroups } = await import('@rocket.chat/models');
+		const groups = await CustomMentionGroups.findByIds(groupIds).toArray();
+		groupMentionIds = groups.flatMap((g) => g.userIds);
+	}
 
 	return {
 		toAll,
 		toHere,
-		mentionIds,
+		mentionIds: expandedMentionIds,
+		groupMentionIds,
 	};
 }
 
@@ -91,8 +109,14 @@ async function updateUsersSubscriptions(message: IMessage, room: IRoom): Promise
 
 	const [mentions, highlightIds] = await Promise.all([getMentions(message), getUserIdsFromHighlights(room._id, message)]);
 
-	const { toAll, toHere, mentionIds } = mentions;
-	const userIds = [...new Set([...mentionIds, ...highlightIds])];
+	const { toAll, toHere, mentionIds, groupMentionIds } = mentions;
+
+	// Separate group mentions from regular user mentions
+	const directMentionIds = mentionIds.filter((id) => !groupMentionIds.includes(id));
+	const userIds = [...new Set([...directMentionIds, ...highlightIds])];
+	const groupOnlyMentionIds = groupMentionIds.filter((id) => !directMentionIds.includes(id));
+	const hasGroupMentions = toAll || toHere || groupMentionIds.length > 0;
+
 	const unreadCount = getUnreadSettingCount(room.t);
 	const unreadAllMessages = unreadCount === 'all_messages';
 
@@ -101,22 +125,28 @@ async function updateUsersSubscriptions(message: IMessage, room: IRoom): Promise
 
 	// find all subscriptions that will need to be notified after the update.
 	// we need to use toArray() here and keep results in memory because we'll update the them later
+	const allMentionedIds = [...new Set([...userIds, ...groupMentionIds])];
 	const subs = await Subscriptions.findByRoomIdAndNotAlertOrOpenExcludingUserIds({
 		roomId: room._id,
 		uidsExclude: [message.u._id],
-		uidsInclude: userIds,
-		onlyRead: !toAll && !toHere && !unreadAllMessages,
+		uidsInclude: allMentionedIds,
+		onlyRead: !hasGroupMentions && !unreadAllMessages,
 	}).toArray();
 
-	// Give priority to user mentions over group mentions
+	// Handle user mentions (direct mentions and highlights)
 	if (userIds.length) {
 		await Subscriptions.incUserMentionsAndUnreadForRoomIdAndUserIds(room._id, userIds, 1, userMentionInc);
+	}
+
+	// Handle group mentions (custom groups, @all, @here)
+	if (groupOnlyMentionIds.length) {
+		await Subscriptions.incGroupMentionsAndUnreadForRoomIdAndUserIds(room._id, groupOnlyMentionIds, 1, groupMentionInc);
 	} else if (toAll || toHere) {
 		await Subscriptions.incGroupMentionsAndUnreadForRoomIdExcludingUserId(room._id, message.u._id, 1, groupMentionInc);
 	}
 
-	if (!toAll && !toHere && unreadAllMessages) {
-		await Subscriptions.incUnreadForRoomIdExcludingUserIds(room._id, [...userIds, message.u._id], 1);
+	if (!hasGroupMentions && unreadAllMessages) {
+		await Subscriptions.incUnreadForRoomIdExcludingUserIds(room._id, [...allMentionedIds, message.u._id], 1);
 	}
 
 	// update subscriptions of other members of the room
@@ -127,7 +157,9 @@ async function updateUsersSubscriptions(message: IMessage, room: IRoom): Promise
 
 	subs.forEach((sub) => {
 		const hasUserMention = userIds.includes(sub.u._id);
-		const shouldIncUnread = hasUserMention || toAll || toHere || unreadAllMessages;
+		const hasGroupMention = groupMentionIds.includes(sub.u._id);
+		const hasAnyGroupMention = toAll || toHere || hasGroupMention;
+		const shouldIncUnread = hasUserMention || hasAnyGroupMention || unreadAllMessages;
 		void notifyOnSubscriptionChanged(
 			{
 				...sub,
@@ -135,7 +167,7 @@ async function updateUsersSubscriptions(message: IMessage, room: IRoom): Promise
 				open: true,
 				...(shouldIncUnread && { unread: sub.unread + 1 }),
 				...(hasUserMention && { userMentions: sub.userMentions + 1 }),
-				...((toAll || toHere) && { groupMentions: sub.groupMentions + 1 }),
+				...(hasAnyGroupMention && { groupMentions: sub.groupMentions + 1 }),
 			},
 			'updated',
 		);

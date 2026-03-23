@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { hasAtLeastOnePermission } from '../../../../app/authorization/client';
 import { emoji } from '../../../../app/emoji/client';
 import { slashCommands } from '../../../../app/utils/client';
+import { EXPLICIT_CUSTOM_MENTION_GROUP_MARKER } from '../../../../lib/customMentions/marker';
 import { cannedResponsesQueryKeys } from '../../../lib/queryKeys';
 import { Messages, Subscriptions } from '../../../stores';
 import ComposerBoxPopupCannedResponse from '../composer/ComposerBoxPopupCannedResponse';
@@ -27,7 +28,6 @@ import type { ComposerPopupContextValue } from '../contexts/ComposerPopupContext
 import { ComposerPopupContext, createMessageBoxPopupConfig } from '../contexts/ComposerPopupContext';
 import useCannedResponsesQuery from './hooks/useCannedResponsesQuery';
 import { pipe } from '../../../lib/cachedStores/pipe';
-
 import ComposerBoxPopupCustomMentionGroup from '../composer/ComposerBoxPopupCustomMentionGroup';
 import type { ComposerBoxPopupCustomMentionGroupProps } from '../composer/ComposerBoxPopupCustomMentionGroup';
 
@@ -180,7 +180,7 @@ const ComposerPopupProvider = ({ children, room }: ComposerPopupProviderProps) =
 				},
 				getValue: (item) => {
 					if ('isCustomMentionGroup' in item && (item as any).isCustomMentionGroup === true) {
-						return (item as any).name as string;
+						return `${(item as any).name as string}${EXPLICIT_CUSTOM_MENTION_GROUP_MARKER}`;
 					}
 					const userItem = item as unknown as ComposerBoxPopupUserProps;
 					return userItem.username.startsWith('@') ? userItem.username.substring(1) : userItem.username;

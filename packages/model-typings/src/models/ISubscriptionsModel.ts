@@ -276,6 +276,13 @@ export interface ISubscriptionsModel extends IBaseModel<ISubscription> {
 		incUnread?: number,
 	): Promise<UpdateResult | Document>;
 
+	incGroupMentionsAndUnreadForRoomIdAndUserIds(
+		roomId: IRoom['_id'],
+		userIds: IUser['_id'][],
+		incGroup?: number,
+		incUnread?: number,
+	): Promise<UpdateResult | Document>;
+
 	ignoreUser(data: { _id: string; ignoredUser: string; ignore?: boolean }): Promise<UpdateResult>;
 
 	addRoleById(_id: string, role: string): Promise<UpdateResult>;

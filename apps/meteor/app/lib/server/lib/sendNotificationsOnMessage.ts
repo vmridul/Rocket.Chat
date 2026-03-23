@@ -53,6 +53,7 @@ export const sendNotification = async ({
 	notificationMessage,
 	room,
 	mentionIds,
+	groupMentionIds,
 	disableAllMessageNotifications,
 }: {
 	subscription: SubscriptionAggregation;
@@ -65,6 +66,7 @@ export const sendNotification = async ({
 	notificationMessage: string;
 	room: IRoom;
 	mentionIds: string[];
+	groupMentionIds: string[];
 	disableAllMessageNotifications: boolean;
 }) => {
 	if (settings.get<boolean>('Troubleshoot_Disable_Notifications') === true) {
@@ -77,9 +79,15 @@ export const sendNotification = async ({
 	}
 
 	const hasMentionToUser = mentionIds.includes(subscription.u._id);
+	const hasMentionToGroup = groupMentionIds.includes(subscription.u._id);
 
-	// mute group notifications (@here and @all) if not directly mentioned as well
-	if (!hasMentionToUser && !hasReplyToThread && subscription.muteGroupMentions && (hasMentionToAll || hasMentionToHere)) {
+	// mute group notifications (@here, @all, and custom groups) if not directly mentioned as well
+	if (
+		!hasMentionToUser &&
+		!hasReplyToThread &&
+		subscription.muteGroupMentions &&
+		(hasMentionToAll || hasMentionToHere || hasMentionToGroup)
+	) {
 		return;
 	}
 
@@ -282,23 +290,24 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 		return message;
 	}
 
-	const { toAll: hasMentionToAll, toHere: hasMentionToHere, mentionIds } = await getMentions(message);
+	const { toAll: hasMentionToAll, toHere: hasMentionToHere, mentionIds, groupMentionIds } = await getMentions(message);
 
-	const mentionIdsWithoutGroups = [...mentionIds];
+	const allMentionIds = [...new Set([...mentionIds, ...groupMentionIds])];
+	const mentionIdsWithoutGroups = [...allMentionIds];
 
 	// getMentions removes `all` and `here` from mentionIds so we need to add them back for compatibility
 	if (hasMentionToAll) {
-		mentionIds.push('all');
+		allMentionIds.push('all');
 	}
 	if (hasMentionToHere) {
-		mentionIds.push('here');
+		allMentionIds.push('here');
 	}
 
 	// add users in thread to mentions array because they follow the same rules
-	mentionIds.push(...usersInThread);
+	allMentionIds.push(...usersInThread);
 
 	let notificationMessage = await callbacks.run('beforeSendMessageNotifications', message.msg);
-	if (mentionIds.length > 0 && settings.get('UI_Use_Real_Name')) {
+	if (allMentionIds.length > 0 && settings.get('UI_Use_Real_Name')) {
 		notificationMessage = replaceMentionedUsernamesWithFullNames(message.msg, message.mentions ?? []);
 	}
 
@@ -368,6 +377,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 				notificationMessage,
 				room,
 				mentionIds,
+				groupMentionIds,
 				disableAllMessageNotifications,
 				hasReplyToThread: usersInThread?.includes(subscription.u._id),
 			}),

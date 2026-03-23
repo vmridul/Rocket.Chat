@@ -1,13 +1,21 @@
 import type { IMessage, MessageMention, IUser } from '@rocket.chat/core-typings';
 import { CustomMentionGroups, Users } from '@rocket.chat/models';
 
-import { resolveGroups } from '../../../../server/services/customMentionGroups/service';
+import {
+	getExplicitlySelectedCustomMentionGroupNames,
+	stripExplicitCustomMentionGroupMarkers,
+} from '../../../../lib/customMentions/marker';
 import { callbacks } from '../../../../server/lib/callbacks';
+import { resolveGroups } from '../../../../server/services/customMentionGroups/service';
 import { hasPermissionAsync } from '../../../authorization/server/functions/hasPermission';
 
 export async function resolveCustomMentions(message: IMessage, user?: Pick<IUser, '_id'>): Promise<IMessage> {
-	// Parse groups from the message text
 	const groups = await resolveGroups(message.msg || '');
+	const explicitlySelectedGroupNames = new Set(getExplicitlySelectedCustomMentionGroupNames(message.msg || ''));
+
+	if (message.msg) {
+		message.msg = stripExplicitCustomMentionGroupMarkers(message.msg);
+	}
 
 	if (groups.length === 0) {
 		return message;
@@ -21,6 +29,9 @@ export async function resolveCustomMentions(message: IMessage, user?: Pick<IUser
 	const hasPermission = !user || (await hasPermissionAsync(user._id, 'view-custom-mention-groups'));
 
 	for (const group of groups) {
+		const wasExplicitlySelectedAsGroup = explicitlySelectedGroupNames.has(group.name);
+		const hasUserMentionWithSameName = message.mentions.some((mention) => mention.type === 'user' && mention.username === group.name);
+
 		// Skip groups if user doesn't have permission
 		if (!hasPermission) {
 			// Remove the mention from the message mentions so it won't be processed
@@ -28,8 +39,15 @@ export async function resolveCustomMentions(message: IMessage, user?: Pick<IUser
 			continue;
 		}
 
-		// Remove shadowed user mentions (if any)
-		message.mentions = message.mentions.filter((m) => m.username !== group.name || m.type !== 'user');
+		// If the user explicitly selected a user with this name, do not resolve the custom group.
+		if (!wasExplicitlySelectedAsGroup && hasUserMentionWithSameName) {
+			continue;
+		}
+
+		// For explicitly selected groups, preserve the group intent when a user has the same name.
+		if (wasExplicitlySelectedAsGroup) {
+			message.mentions = message.mentions.filter((m) => m.username !== group.name || m.type !== 'user');
+		}
 
 		// Resolve usernames for all members (for the snapshot)
 		const resolvedUsernames: string[] = [];

@@ -49,13 +49,14 @@ export async function processThreads(message: IMessage, room: IRoom) {
 		return message;
 	}
 
-	const { mentionIds } = await getMentions(message);
+	const mentions = await getMentions(message);
+	const allMentionIds = [...new Set([...mentions.mentionIds, ...mentions.groupMentionIds])];
 
 	const replies = [
 		...new Set([
 			...((!parentMessage.tcount ? [parentMessage.u._id] : parentMessage.replies) || []),
 			...(!parentMessage.tcount && room.t === 'd' && room.uids ? room.uids : []),
-			...mentionIds,
+			...allMentionIds,
 		]),
 	].filter((userId) => userId !== message.u._id);
 
