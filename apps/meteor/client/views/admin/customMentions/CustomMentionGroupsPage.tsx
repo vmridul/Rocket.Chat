@@ -1,4 +1,4 @@
-import { Button } from '@rocket.chat/fuselage';
+import { Button, ButtonGroup } from '@rocket.chat/fuselage';
 import {
 	ContextualbarTitle,
 	ContextualbarClose,
@@ -46,9 +46,13 @@ const CustomMentionGroupsPage = () => {
 		<Page flexDirection='row'>
 			<Page name='admin-custom-mention-groups'>
 				<PageHeader title={t('Custom_Mentions')}>
-					<Button primary onClick={handleNewButtonClick} aria-label={t('New')}>
-						{t('New')}
-					</Button>
+					{!context && (
+						<ButtonGroup>
+							<Button primary onClick={handleNewButtonClick} aria-label={t('New')}>
+								{t('New')}
+							</Button>
+						</ButtonGroup>
+					)}
 				</PageHeader>
 				<PageContent>
 					<CustomMentionGroupsTable reload={reload} onClick={handleItemClick} />
