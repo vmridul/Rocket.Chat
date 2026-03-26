@@ -2,9 +2,11 @@ import type { SetStateAction } from 'react';
 import { createContext, useContext } from 'react';
 
 export type RoomTypeFilter = 'all' | 'c' | 'p' | 'd';
+export type MessageTypeFilter = 'all' | 'mention' | 'highlight' | 'reaction' | 'thread' | 'discussion';
 
 export type ActivityCenterFiltersQuery = {
 	roomType: RoomTypeFilter;
+	messageType: MessageTypeFilter;
 	unread: 'all' | 'unread' | 'read';
 	fromDate?: string;
 	toDate?: string;
@@ -14,6 +16,7 @@ export type ActivityCenterFiltersQuery = {
 
 export const initialValues: ActivityCenterFiltersQuery = {
 	roomType: 'all',
+	messageType: 'all',
 	unread: 'all',
 	fromDate: '',
 	toDate: '',

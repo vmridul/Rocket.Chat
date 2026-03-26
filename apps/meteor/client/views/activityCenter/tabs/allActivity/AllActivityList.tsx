@@ -67,6 +67,14 @@ const AllActivityList = (): ReactElement => {
 					(filtersQuery.unread === 'unread' && notification.isUnread) ||
 					(filtersQuery.unread === 'read' && !notification.isUnread);
 
+				const matchesMessageType =
+					filtersQuery.messageType === 'all' ||
+					(filtersQuery.messageType === 'mention' && notification.type === 'mention') ||
+					(filtersQuery.messageType === 'highlight' && notification.type === 'highlight') ||
+					(filtersQuery.messageType === 'reaction' && notification.type === 'reaction') ||
+					(filtersQuery.messageType === 'thread' && notification.isThreadReply) ||
+					(filtersQuery.messageType === 'discussion' && (notification.isDiscussion || notification.isDiscussionReply));
+
 				let matchesDate = true;
 				if (filtersQuery.fromDate || filtersQuery.toDate) {
 					const notificationTime = new Date(notification.receivedAt).getTime();
@@ -82,7 +90,9 @@ const AllActivityList = (): ReactElement => {
 					}
 				}
 
-				return matchesSearch && matchesRoomType && matchesUsername && matchesRoom && matchesDate && matchesUnread;
+				return (
+					matchesSearch && matchesRoomType && matchesUsername && matchesRoom && matchesDate && matchesUnread && matchesMessageType
+				);
 			}),
 		[notifications, normalizedSearch, filtersQuery],
 	);

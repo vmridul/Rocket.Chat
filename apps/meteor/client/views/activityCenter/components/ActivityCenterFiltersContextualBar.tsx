@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import RoomAutoCompleteMultiple from '../../../components/RoomAutoCompleteMultiple';
 import UserAutoCompleteMultiple from '../../../components/UserAutoCompleteMultiple';
-import type { RoomTypeFilter } from '../contexts/ActivityCenterContext';
+import type { RoomTypeFilter, MessageTypeFilter } from '../contexts/ActivityCenterContext';
 import { useActivityCenterContext } from '../contexts/ActivityCenterContext';
 
 const ActivityCenterFiltersContextualBar = (): ReactElement => {
@@ -25,6 +25,16 @@ const ActivityCenterFiltersContextualBar = (): ReactElement => {
 	const roomTypeFieldId = useId();
 	const fromDateFieldId = useId();
 	const toDateFieldId = useId();
+	const messageTypeFieldId = useId();
+
+	const messageTypeOptions: [MessageTypeFilter, string][] = [
+		['all', 'All'],
+		['mention', 'Mentions'],
+		['highlight', 'Highlights'],
+		['reaction', 'Reactions'],
+		['thread', 'Threads'],
+		['discussion', 'Discussions'],
+	];
 
 	const roomTypeOptions: [RoomTypeFilter, string][] = [
 		['all', t('All')],
@@ -54,6 +64,17 @@ const ActivityCenterFiltersContextualBar = (): ReactElement => {
 							options={roomTypeOptions}
 							value={filtersQuery.roomType}
 							onChange={(value) => setFiltersQuery((prev) => ({ ...prev, roomType: value as RoomTypeFilter }))}
+						/>
+					</FieldRow>
+				</Field>
+				<Field>
+					<FieldLabel htmlFor={messageTypeFieldId}>Message type</FieldLabel>
+					<FieldRow>
+						<Select
+							id={messageTypeFieldId}
+							options={messageTypeOptions}
+							value={filtersQuery.messageType}
+							onChange={(value) => setFiltersQuery((prev) => ({ ...prev, messageType: value as MessageTypeFilter }))}
 						/>
 					</FieldRow>
 				</Field>

@@ -14,6 +14,7 @@ const ActivityCenterProvider = ({ children }: ActivityCenterProviderProps) => {
 
 	const hasAppliedFilters =
 		filtersQuery.roomType !== 'all' ||
+		filtersQuery.messageType !== 'all' ||
 		filtersQuery.unread !== 'all' ||
 		!!filtersQuery.fromDate ||
 		!!filtersQuery.toDate ||
