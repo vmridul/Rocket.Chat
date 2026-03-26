@@ -481,6 +481,7 @@ export type Notifications = {
 	audioNotificationValue?: string;
 	mobilePushNotifications?: string;
 	emailNotifications?: string;
+	activityNotifications?: string;
 };
 
 type RoomsGetDiscussionsProps = PaginatedRequest<BaseRoomsProps>;

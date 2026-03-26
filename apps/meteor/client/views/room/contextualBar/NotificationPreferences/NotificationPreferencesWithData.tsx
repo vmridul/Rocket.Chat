@@ -52,6 +52,7 @@ const NotificationPreferencesWithData = (): ReactElement => {
 			desktopSound: subscription?.audioNotificationValue || 'default',
 			mobileAlert: (subscription?.mobilePrefOrigin === 'subscription' && subscription.mobilePushNotifications) || 'default',
 			emailAlert: (subscription?.emailPrefOrigin === 'subscription' && subscription.emailNotifications) || 'default',
+			activityNotifications: (subscription?.activityPrefOrigin === 'subscription' && subscription.activityNotifications) || 'default',
 		},
 	});
 
@@ -62,7 +63,17 @@ const NotificationPreferencesWithData = (): ReactElement => {
 	};
 
 	const handleSave = methods.handleSubmit(
-		async ({ turnOn, muteGroupMentions, showCounter, showMentions, desktopAlert, desktopSound, mobileAlert, emailAlert }) => {
+		async ({
+			turnOn,
+			muteGroupMentions,
+			showCounter,
+			showMentions,
+			desktopAlert,
+			desktopSound,
+			mobileAlert,
+			emailAlert,
+			activityNotifications,
+		}) => {
 			const notifications = {
 				disableNotifications: turnOn ? '0' : '1',
 				muteGroupMentions: muteGroupMentions ? '1' : '0',
@@ -72,6 +83,7 @@ const NotificationPreferencesWithData = (): ReactElement => {
 				audioNotificationValue: desktopSound,
 				mobilePushNotifications: mobileAlert,
 				emailNotifications: emailAlert,
+				activityNotifications,
 			};
 
 			await saveSettings({

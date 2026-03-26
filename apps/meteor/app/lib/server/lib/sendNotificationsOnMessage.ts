@@ -255,6 +255,8 @@ const project = {
 		'receiver.username': 1,
 		'receiver.settings.preferences.enableMobileRinging': 1,
 		'audioNotificationValue': 1,
+		'activityNotifications': 1,
+		'activityPrefOrigin': 1,
 	},
 } as const;
 
@@ -369,29 +371,42 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 		let shouldCreateActivityNotification = false;
 
 		if (subscription.u._id !== sender._id) {
-			const { desktopNotifications } = subscription;
+			const { desktopNotifications, activityNotifications } = subscription;
 			const defaultPreferences = settings.get('Accounts_Default_User_Preferences_desktopNotifications');
 
-			if ((desktopNotifications === 'all' || (!desktopNotifications && defaultPreferences === 'all')) && !disableAllMessageNotifications) {
+			if (activityNotifications === 'all') {
 				shouldCreateActivityNotification = true;
-			} else if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
+			} else if (activityNotifications === 'mentions') {
 				shouldCreateActivityNotification =
-					hasMentionToUser || (!disableAllMessageNotifications && (hasMentionToAll || hasMentionToHere)) || room.t === 'd' || isHighlighted;
-			}
-
-			if (
-				!hasMentionToUser &&
-				!hasReplyToThread &&
-				!isHighlighted &&
-				subscription.muteGroupMentions &&
-				(hasMentionToAll || hasMentionToHere)
-			) {
+					hasMentionToUser ||
+					hasReplyToThread ||
+					isHighlighted ||
+					room.t === 'd' ||
+					(!disableAllMessageNotifications && (hasMentionToAll || hasMentionToHere));
+			} else if (activityNotifications === 'nothing') {
 				shouldCreateActivityNotification = false;
-			}
-
-			if (hasMentionToUser || hasReplyToThread || isHighlighted) {
-				if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
+			} else {
+				if ((desktopNotifications === 'all' || (!desktopNotifications && defaultPreferences === 'all')) && !disableAllMessageNotifications) {
 					shouldCreateActivityNotification = true;
+				} else if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
+					shouldCreateActivityNotification =
+						hasMentionToUser || (!disableAllMessageNotifications && (hasMentionToAll || hasMentionToHere)) || room.t === 'd' || isHighlighted;
+				}
+
+				if (
+					!hasMentionToUser &&
+					!hasReplyToThread &&
+					!isHighlighted &&
+					subscription.muteGroupMentions &&
+					(hasMentionToAll || hasMentionToHere)
+				) {
+					shouldCreateActivityNotification = false;
+				}
+
+				if (hasMentionToUser || hasReplyToThread || isHighlighted) {
+					if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
+						shouldCreateActivityNotification = true;
+					}
 				}
 			}
 		}

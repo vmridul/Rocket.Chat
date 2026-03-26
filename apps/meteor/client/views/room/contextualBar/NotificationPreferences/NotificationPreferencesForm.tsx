@@ -58,6 +58,21 @@ const NotificationPreferencesForm = ({ notificationOptions, handlePlaySound }: N
 				/>
 			)}
 			<FieldGroup>
+				<NotificationByDevice device={'Activity Hub'} icon='list-alt'>
+					<Controller
+						control={control}
+						name='activityNotifications'
+						render={({ field: { value, onChange } }) => (
+							<NotificationPreference
+								id='ActivityHub'
+								name={t('Alerts')}
+								options={notificationOptions.alerts}
+								optionValue={value}
+								onChange={onChange}
+							/>
+						)}
+					/>
+				</NotificationByDevice>
 				<NotificationByDevice device={t('Desktop')} icon='desktop'>
 					<Controller
 						control={control}

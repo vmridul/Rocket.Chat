@@ -25,6 +25,8 @@ export const subscriptionFields = {
 	desktopPrefOrigin: 1,
 	mobilePrefOrigin: 1,
 	emailPrefOrigin: 1,
+	activityNotifications: 1,
+	activityPrefOrigin: 1,
 	unreadAlert: 1,
 	_updatedAt: 1,
 	blocked: 1,

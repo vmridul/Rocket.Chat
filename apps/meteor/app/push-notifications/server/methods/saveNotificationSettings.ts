@@ -19,7 +19,8 @@ export type NotificationFieldType =
 	| 'hideUnreadStatus'
 	| 'hideMentionStatus'
 	| 'muteGroupMentions'
-	| 'audioNotificationValue';
+	| 'audioNotificationValue'
+	| 'activityNotifications';
 declare module '@rocket.chat/ddp-client' {
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	interface ServerMethods {
@@ -98,10 +99,19 @@ export const saveNotificationSettingsMethod = async (
 		audioNotificationValue: {
 			updateMethod: (subscription: ISubscription, value: string) => saveAudioNotificationValue(subscription._id, value),
 		},
+		activityNotifications: {
+			updateMethod: async (subscription: ISubscription, value: unknown) =>
+				Subscriptions.updateNotificationsPrefById(
+					subscription._id,
+					await getNotificationPrefValue('activity', value),
+					'activityNotifications',
+					'activityPrefOrigin',
+				),
+		},
 	};
 	const isInvalidNotification = !Object.keys(notifications).includes(field);
 	const basicValuesForNotifications = ['all', 'mentions', 'nothing', 'default'];
-	const fieldsMustHaveBasicValues = ['emailNotifications', 'mobilePushNotifications', 'desktopNotifications'];
+	const fieldsMustHaveBasicValues = ['emailNotifications', 'mobilePushNotifications', 'desktopNotifications', 'activityNotifications'];
 
 	if (isInvalidNotification) {
 		throw new Meteor.Error('error-invalid-settings', 'Invalid settings field', {
