@@ -12,15 +12,26 @@ import { useFormatDate } from '/client/hooks/useFormatDate';
 import { useActivityNotifications } from '../../hooks/useActivityNotifications';
 import { useActivityCenterContext } from '../../contexts/ActivityCenterContext';
 import ActivityItem from './AllActivityItem';
+import debounce from 'lodash.debounce';
+
+let lastScrollOffset = 0;
 
 const AllActivityList = (): ReactElement => {
 	const { t } = useTranslation();
 	const formatDate = useFormatDate();
 	const { notifications, clearOne, clearAll } = useActivityNotifications();
-	const { filtersQuery, setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
+	const { filtersQuery, setFiltersQuery, setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
 	const setModal = useSetModal();
 	const [searchText, setSearchText] = useState('');
 	const normalizedSearch = searchText.toLowerCase();
+
+	const setScrollOffsetDebounced = useMemo(
+		() =>
+			debounce((offset: number) => {
+				lastScrollOffset = offset;
+			}, 300),
+		[],
+	);
 
 	const handleClearAll = (): void => {
 		const closeModal = (): void => setModal(null);
@@ -135,6 +146,11 @@ const AllActivityList = (): ReactElement => {
 						<Virtuoso
 							data={filteredNotifications}
 							overscan={25}
+							initialScrollTop={lastScrollOffset}
+							onScroll={(e) => {
+								const target = e.target as HTMLElement;
+								setScrollOffsetDebounced(target.scrollTop);
+							}}
 							itemContent={(index, notification) => {
 								const previous = filteredNotifications[index - 1];
 								const newDay = isNewDay(notification.receivedAt, previous?.receivedAt);
