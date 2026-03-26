@@ -72,10 +72,11 @@ export const createActivityNotification = async ({
 	text,
 	hasMentionToUser,
 	hasReplyToThread,
-	isUnfollowedThread,
-	isHighlighted,
 	hasMentionToAll,
 	hasMentionToHere,
+	isUnfollowedThread,
+	isHighlighted,
+	isTeam,
 }: {
 	uid: string;
 	message: Pick<IMessage, '_id' | 'tmid' | 't'>;
@@ -89,6 +90,7 @@ export const createActivityNotification = async ({
 	hasMentionToHere?: boolean;
 	isUnfollowedThread?: boolean;
 	isHighlighted?: boolean;
+	isTeam?: boolean;
 }): Promise<void> => {
 	const type: 'message' | 'mention' | 'highlight' | 'reaction' =
 		// eslint-disable-next-line no-nested-ternary
@@ -143,6 +145,7 @@ export const createActivityNotification = async ({
 			rid: navigationRoom.rid,
 			roomType: navigationRoom.roomType,
 			roomName: navigationRoom.roomName,
+			isTeam,
 		},
 	};
 
@@ -227,6 +230,7 @@ callbacks.add(
 			text: 'reaction',
 			hasMentionToUser: false,
 			hasReplyToThread: false,
+			isTeam: !!(room.teamMain || (room.teamId && room._id === room.teamId)),
 		});
 
 		return message;

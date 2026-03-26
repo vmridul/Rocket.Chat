@@ -12,6 +12,7 @@ import {
 	MessageToolbarItem,
 	MessageToolbarWrapper,
 	Box,
+	Icon,
 } from '@rocket.chat/fuselage';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, useUserPreference } from '@rocket.chat/ui-contexts';
@@ -65,11 +66,8 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 
 	let metaActionText = notification.isThreadReply ? 'new reply in thread in' : t('sent_a_message_in');
 	let metaActionTextDm = notification.isThreadReply ? 'new reply in thread' : t('sent_you_a_message');
-	let roomLabel = notification.roomType === 'd' ? notification.roomName || t('Direct_Message') : `#${notification.roomName || ''}`;
-
 	if (notification.isDiscussion) {
 		metaActionText = notification.isDiscussionReply ? 'new message in' : 'new discussion created';
-		roomLabel = notification.roomName || '';
 	}
 
 	if (notification.type === 'mention') {
@@ -79,8 +77,8 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 		metaActionText = notification.isThreadReply ? 'highlighted word in a thread in' : 'highlighted word in';
 		metaActionTextDm = notification.isThreadReply ? 'highlighted word in a thread' : 'highlighted word';
 	} else if (notification.type === 'reaction') {
-		metaActionText = 'New reaction to your message in';
-		metaActionTextDm = 'New reaction to your message';
+		metaActionText = 'new reaction to your message in';
+		metaActionTextDm = 'new reaction to your message';
 	}
 
 	const handleJump = () => {
@@ -138,8 +136,15 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 										{metaActionText}
 									</Box>
 									<RoomAvatar size='x16' room={{ _id: notification.rid, type: notification.roomType || 'c' }} />
-									<Box is='span' fontScale='c1' mis={4} style={readMetaTextStyle}>
-										{roomLabel}
+									<Box is='span' fontScale='c1' mis={4} display='inline-flex' alignItems='center' style={readMetaTextStyle}>
+										{notification.isDiscussion ? (
+											<Icon name='baloons' size='x16' mie={4} />
+										) : notification.isTeam ? (
+											<Icon name={notification.roomType === 'p' ? 'team-lock' : 'team'} size='x16' mie={4} />
+										) : (
+											notification.roomType !== 'd' && <Icon name={notification.roomType === 'p' ? 'hashtag-lock' : 'hash'} size='x16' mie={4} />
+										)}
+										{notification.roomName || (notification.roomType === 'd' ? t('Direct_Message') : '')}
 									</Box>
 								</Box>
 							)}

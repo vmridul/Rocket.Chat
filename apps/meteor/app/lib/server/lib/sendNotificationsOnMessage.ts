@@ -425,6 +425,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 				isHighlighted,
 				hasMentionToAll,
 				hasMentionToHere,
+				isTeam: !!(room.teamMain || (room.teamId && room._id === room.teamId)),
 			});
 		}
 

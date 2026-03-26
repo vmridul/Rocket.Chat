@@ -15,6 +15,7 @@ export type ActivityNotificationRecord = {
 	isThreadReply?: boolean;
 	isDiscussion?: boolean;
 	isDiscussionReply?: boolean;
+	isTeam?: boolean;
 };
 
 export type ActivityNotification = ActivityNotificationRecord & {
