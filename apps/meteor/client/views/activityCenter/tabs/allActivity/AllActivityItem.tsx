@@ -70,12 +70,9 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 		metaActionText = notification.isDiscussionReply ? 'new message in' : 'new discussion created';
 	}
 
-	if (notification.type === 'mention') {
+	if (notification.type === 'mention' || notification.type === 'highlight') {
 		metaActionText = notification.isThreadReply ? 'mentioned you in a thread in' : 'mentioned you in';
 		metaActionTextDm = notification.isThreadReply ? 'mentioned you in a thread' : 'mentioned you';
-	} else if (notification.type === 'highlight') {
-		metaActionText = notification.isThreadReply ? 'highlighted word in a thread in' : 'highlighted word in';
-		metaActionTextDm = notification.isThreadReply ? 'highlighted word in a thread' : 'highlighted word';
 	} else if (notification.type === 'reaction') {
 		metaActionText = 'new reaction to your message in';
 		metaActionTextDm = 'new reaction to your message';
