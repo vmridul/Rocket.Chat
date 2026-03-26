@@ -4292,6 +4292,8 @@
   "React_when_read_only": "Allow reacting",
   "React_when_read_only_changed_successfully": "Allow reacting when read only changed successfully",
   "React_with__reaction__": "Reacted with {{reaction}}",
+  "Reacted_to_your_message": "reacted to your message",
+  "Reacted_to_your_message_in": "reacted to your message in",
   "Reacted_with": "Reacted with",
   "Reactions": "Reactions",
   "Read_Receipts": "Read receipts",

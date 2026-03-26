@@ -1,6 +1,6 @@
 import { api } from '@rocket.chat/core-services';
 import type { IMessage, IRoom, IUser } from '@rocket.chat/core-typings';
-import { MessageReads, Messages, Rooms, Subscriptions } from '@rocket.chat/models';
+import { Messages, Rooms, Subscriptions } from '@rocket.chat/models';
 
 import {
 	ActivityNotificationsCollection,
@@ -86,7 +86,9 @@ export const createActivityNotification = async ({
 	isUnfollowedThread?: boolean;
 	isHighlighted?: boolean;
 }): Promise<void> => {
-	const type: 'message' | 'mention' | 'highlight' = hasMentionToUser ? 'mention' : isHighlighted ? 'highlight' : hasReplyToThread ? 'mention' : 'message';
+	const type: 'message' | 'mention' | 'highlight' | 'reaction' =
+		// eslint-disable-next-line no-nested-ternary
+		hasMentionToUser ? 'mention' : isHighlighted ? 'highlight' : hasReplyToThread ? 'mention' : text?.includes('reaction') ? 'reaction' : 'message';
 
 	let navigationRoom = { rid: room._id, roomType: room.t, roomName };
 	let rootMessage = message as any;
@@ -155,7 +157,7 @@ export const createActivityNotification = async ({
 						name: rootMessage.u?.name ?? sender.name,
 					},
 					text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
-					type,
+					type: type as any,
 				},
 			},
 		);
@@ -198,3 +200,27 @@ export const removeActivityNotification = async ({ uid, messageId }: { uid: stri
 		void api.broadcast('notify.activity-notification-removed', uid, { messageId });
 	}
 };
+
+callbacks.add(
+	'afterSetReaction',
+	async (message: IMessage, { room }: { room: IRoom }) => {
+		if (!message?.u?._id) {
+			return message;
+		}
+
+		await createActivityNotification({
+			uid: message.u._id,
+			message,
+			room,
+			roomName: room.fname ?? room.name,
+			sender: message.u,
+			text: 'reaction',
+			hasMentionToUser: false,
+			hasReplyToThread: false,
+		});
+
+		return message;
+	},
+	callbacks.priority.LOW,
+	'activityNotifications.afterSetReaction',
+);

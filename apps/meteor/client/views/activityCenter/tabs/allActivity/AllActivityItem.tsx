@@ -78,6 +78,9 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 	} else if (notification.type === 'highlight') {
 		metaActionText = notification.isThreadReply ? 'highlighted word in a thread in' : 'highlighted word in';
 		metaActionTextDm = notification.isThreadReply ? 'highlighted word in a thread' : 'highlighted word';
+	} else if (notification.type === 'reaction') {
+		metaActionText = 'New reaction to your message in';
+		metaActionTextDm = 'New reaction to your message';
 	}
 
 	const handleJump = () => {
