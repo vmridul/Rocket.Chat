@@ -423,6 +423,8 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 				hasReplyToThread,
 				isUnfollowedThread,
 				isHighlighted,
+				hasMentionToAll,
+				hasMentionToHere,
 			});
 		}
 

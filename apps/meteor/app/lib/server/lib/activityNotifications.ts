@@ -74,6 +74,8 @@ export const createActivityNotification = async ({
 	hasReplyToThread,
 	isUnfollowedThread,
 	isHighlighted,
+	hasMentionToAll,
+	hasMentionToHere,
 }: {
 	uid: string;
 	message: Pick<IMessage, '_id' | 'tmid' | 't'>;
@@ -83,12 +85,20 @@ export const createActivityNotification = async ({
 	text?: string;
 	hasMentionToUser: boolean;
 	hasReplyToThread: boolean;
+	hasMentionToAll?: boolean;
+	hasMentionToHere?: boolean;
 	isUnfollowedThread?: boolean;
 	isHighlighted?: boolean;
 }): Promise<void> => {
 	const type: 'message' | 'mention' | 'highlight' | 'reaction' =
 		// eslint-disable-next-line no-nested-ternary
-		hasMentionToUser ? 'mention' : isHighlighted ? 'highlight' : hasReplyToThread ? 'mention' : text?.includes('reaction') ? 'reaction' : 'message';
+		hasMentionToUser || hasMentionToAll || hasMentionToHere || hasReplyToThread
+			? 'mention'
+			: isHighlighted
+				? 'highlight'
+				: text?.includes('reaction')
+					? 'reaction'
+					: 'message';
 
 	let navigationRoom = { rid: room._id, roomType: room.t, roomName };
 	let rootMessage = message as any;
