@@ -152,10 +152,6 @@ export const createActivityNotification = async ({
 			isTeam,
 			...(forcedType && {
 				type,
-				sender: {
-					username: sender.username,
-					name: sender.name,
-				},
 				text: text ?? String(rootMessage.msg ?? '').slice(0, 300),
 			}),
 		},
@@ -177,11 +173,11 @@ export const createActivityNotification = async ({
 					_id: docId,
 					userId: uid,
 					messageId: rootMessageId,
+					sender: {
+						username: rootMessage.u?.username ?? sender.username,
+						name: rootMessage.u?.name ?? sender.name,
+					},
 					...(!forcedType && {
-						sender: {
-							username: rootMessage.u?.username ?? sender.username,
-							name: rootMessage.u?.name ?? sender.name,
-						},
 						text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
 						type: type as any,
 					}),
