@@ -20,7 +20,7 @@ const AllActivityList = (): ReactElement => {
 	const { t } = useTranslation();
 	const formatDate = useFormatDate();
 	const { notifications, clearOne, clearAll } = useActivityNotifications();
-	const { filtersQuery, setFiltersQuery, setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
+	const { filtersQuery, setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
 	const setModal = useSetModal();
 	const [searchText, setSearchText] = useState('');
 	const normalizedSearch = searchText.toLowerCase();
@@ -84,7 +84,8 @@ const AllActivityList = (): ReactElement => {
 					(filtersQuery.messageType === 'highlight' && notification.type === 'highlight') ||
 					(filtersQuery.messageType === 'reaction' && notification.type === 'reaction') ||
 					(filtersQuery.messageType === 'thread' && notification.isThreadReply) ||
-					(filtersQuery.messageType === 'discussion' && (notification.isDiscussion || notification.isDiscussionReply));
+					(filtersQuery.messageType === 'discussion' && (notification.isDiscussion || notification.isDiscussionReply)) ||
+					(filtersQuery.messageType === 'pin' && notification.type === 'pin');
 
 				let matchesDate = true;
 				if (filtersQuery.fromDate || filtersQuery.toDate) {

@@ -35,6 +35,7 @@ import type { CloseRoomParams } from '../../app/livechat/server/lib/localTypes';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 interface EventLikeCallbackSignatures {
 	'afterActivateUser': (user: IUser) => void;
+	'afterPinMessage': (message: IMessage, params: { user: IUser; room: IRoom }) => void;
 	'afterCreateChannel': (owner: IUser, room: IRoom) => void;
 	'afterCreatePrivateGroup': (owner: IUser, room: IRoom) => void;
 	'afterDeactivateUser': (user: IUser) => void;

@@ -76,6 +76,9 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 	} else if (notification.type === 'reaction') {
 		metaActionText = 'new reaction to your message in';
 		metaActionTextDm = 'new reaction to your message';
+	} else if (notification.type === 'pin') {
+		metaActionText = 'new pinned message in';
+		metaActionTextDm = 'new pinned message';
 	}
 
 	const handleJump = () => {
@@ -134,7 +137,9 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 									</Box>
 									<RoomAvatar size='x16' room={{ _id: notification.rid, type: notification.roomType || 'c' }} />
 									<Box is='span' fontScale='c1' mis={4} display='inline-flex' alignItems='center' style={readMetaTextStyle}>
-										{notification.isDiscussion ? (
+										{notification.type === 'pin' ? (
+											<Icon name='pin' size='x16' mie={4} />
+										) : notification.isDiscussion ? (
 											<Icon name='baloons' size='x16' mie={4} />
 										) : notification.isTeam ? (
 											<Icon name={notification.roomType === 'p' ? 'team-lock' : 'team'} size='x16' mie={4} />

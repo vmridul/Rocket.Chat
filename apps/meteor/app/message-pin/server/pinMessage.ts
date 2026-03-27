@@ -14,6 +14,7 @@ import { isTheLastMessage } from '../../lib/server/functions/isTheLastMessage';
 import { notifyOnRoomChangedById, notifyOnMessageChange } from '../../lib/server/lib/notifyListener';
 import { settings } from '../../settings/server';
 import { getUserAvatarURL } from '../../utils/server/getUserAvatarURL';
+import { callbacks } from '../../../server/lib/callbacks';
 
 const recursiveRemove = (msg: MessageAttachment, deep = 1) => {
 	if (!msg || !isQuoteAttachment(msg)) {
@@ -110,6 +111,8 @@ export async function pinMessage(message: IMessage, userId: string, pinnedAt?: D
 
 	// App IPostMessagePinned event hook
 	await Apps.self?.triggerEvent(AppEvents.IPostMessagePinned, originalMessage, me, originalMessage.pinned);
+
+	void callbacks.run('afterPinMessage', originalMessage, { user: me, room });
 
 	const pinMessageType = originalMessage.t === 'e2e' ? 'message_pinned_e2e' : 'message_pinned';
 

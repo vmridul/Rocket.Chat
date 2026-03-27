@@ -1,6 +1,6 @@
 import { api } from '@rocket.chat/core-services';
 import type { IMessage, IRoom, IUser } from '@rocket.chat/core-typings';
-import { Messages, Rooms, Subscriptions } from '@rocket.chat/models';
+import { Messages, Rooms, Subscriptions, Users } from '@rocket.chat/models';
 
 import {
 	ActivityNotificationsCollection,
@@ -8,6 +8,7 @@ import {
 	type ActivityNotificationRecord,
 } from '../../collections/activityNotifications';
 import { callbacks } from '../../../../server/lib/callbacks';
+import { settings } from '../../../../app/settings/server';
 
 const isNotificationUnread = ({ receivedAt, roomLastSeen }: { receivedAt: Date | string; roomLastSeen?: Date }): boolean => {
 	const receivedAtDate = new Date(receivedAt);
@@ -77,6 +78,7 @@ export const createActivityNotification = async ({
 	isUnfollowedThread,
 	isHighlighted,
 	isTeam,
+	forcedType,
 }: {
 	uid: string;
 	message: Pick<IMessage, '_id' | 'tmid' | 't'>;
@@ -91,16 +93,18 @@ export const createActivityNotification = async ({
 	isUnfollowedThread?: boolean;
 	isHighlighted?: boolean;
 	isTeam?: boolean;
+	forcedType?: ActivityNotificationRecord['type'];
 }): Promise<void> => {
-	const type: 'message' | 'mention' | 'highlight' | 'reaction' =
+	const type: ActivityNotificationRecord['type'] =
+		forcedType ||
 		// eslint-disable-next-line no-nested-ternary
-		hasMentionToUser || hasMentionToAll || hasMentionToHere || hasReplyToThread
+		(hasMentionToUser || hasMentionToAll || hasMentionToHere || hasReplyToThread
 			? 'mention'
 			: isHighlighted
 				? 'highlight'
 				: text?.includes('reaction')
 					? 'reaction'
-					: 'message';
+					: 'message');
 
 	let navigationRoom = { rid: room._id, roomType: room.t, roomName };
 	let rootMessage = message as any;
@@ -146,6 +150,14 @@ export const createActivityNotification = async ({
 			roomType: navigationRoom.roomType,
 			roomName: navigationRoom.roomName,
 			isTeam,
+			...(forcedType && {
+				type,
+				sender: {
+					username: sender.username,
+					name: sender.name,
+				},
+				text: text ?? String(rootMessage.msg ?? '').slice(0, 300),
+			}),
 		},
 	};
 
@@ -165,12 +177,14 @@ export const createActivityNotification = async ({
 					_id: docId,
 					userId: uid,
 					messageId: rootMessageId,
-					sender: {
-						username: rootMessage.u?.username ?? sender.username,
-						name: rootMessage.u?.name ?? sender.name,
-					},
-					text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
-					type: type as any,
+					...(!forcedType && {
+						sender: {
+							username: rootMessage.u?.username ?? sender.username,
+							name: rootMessage.u?.name ?? sender.name,
+						},
+						text: String(rootMessage.msg ?? text ?? '').slice(0, 300),
+						type: type as any,
+					}),
 				},
 			},
 		);
@@ -216,9 +230,9 @@ export const removeActivityNotification = async ({ uid, messageId }: { uid: stri
 
 callbacks.add(
 	'afterSetReaction',
-	async (message: IMessage, { room }: { room: IRoom }) => {
+	async (message: IMessage, { user, room }: { user: IUser; room: IRoom }) => {
 		if (!message?.u?._id) {
-			return message;
+			return;
 		}
 
 		await createActivityNotification({
@@ -226,15 +240,58 @@ callbacks.add(
 			message,
 			room,
 			roomName: room.fname ?? room.name,
-			sender: message.u,
+			sender: user,
 			text: 'reaction',
 			hasMentionToUser: false,
 			hasReplyToThread: false,
 			isTeam: !!(room.teamMain || (room.teamId && room._id === room.teamId)),
+			forcedType: 'reaction',
 		});
-
-		return message;
 	},
 	callbacks.priority.LOW,
 	'activityNotifications.afterSetReaction',
+);
+
+callbacks.add(
+	'afterPinMessage',
+	async (message: IMessage, { user, room }: { user: IUser; room: IRoom }) => {
+		if (!message?.u?._id) {
+			return;
+		}
+
+		const maxMembersForNotification = settings.get<number>('Notifications_Max_Room_Members');
+		const roomMembersCount = await Users.countRoomMembers(room._id);
+		const disableAllMessageNotifications = roomMembersCount > maxMembersForNotification && maxMembersForNotification !== 0;
+
+		if (disableAllMessageNotifications) {
+			return;
+		}
+
+		const subscriptions = await Subscriptions.findByRoomId(room._id, {
+			projection: { 'u._id': 1, 'activityNotifications': 1, 'disableNotifications': 1 },
+		}).toArray();
+
+		await Promise.all(
+			subscriptions.map((sub) => {
+				if (sub.disableNotifications || sub.activityNotifications === 'nothing') {
+					return;
+				}
+
+				return createActivityNotification({
+					uid: sub.u._id,
+					message,
+					room,
+					roomName: room.fname ?? room.name,
+					sender: user,
+					text: 'pin',
+					hasMentionToUser: false,
+					hasReplyToThread: false,
+					isTeam: !!(room.teamMain || (room.teamId && room._id === room.teamId)),
+					forcedType: 'pin',
+				});
+			}),
+		);
+	},
+	callbacks.priority.LOW,
+	'activityNotifications.afterPinMessage',
 );

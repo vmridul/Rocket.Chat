@@ -34,6 +34,7 @@ const ActivityCenterFiltersContextualBar = (): ReactElement => {
 		['reaction', 'Reactions'],
 		['thread', 'Threads'],
 		['discussion', 'Discussions'],
+		['pin', 'Pins'],
 	];
 
 	const roomTypeOptions: [RoomTypeFilter, string][] = [
