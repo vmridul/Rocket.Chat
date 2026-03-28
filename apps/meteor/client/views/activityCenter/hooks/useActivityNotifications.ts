@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { IMessage } from '@rocket.chat/core-typings';
 import { useUserId, useEndpoint, useStream } from '@rocket.chat/ui-contexts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Meteor } from 'meteor/meteor';
 import type { ActivityNotification as ActivityNotificationItem } from '/app/lib/collections/activityNotifications';
 
 export type ActivityNotification = ActivityNotificationItem;
@@ -16,7 +15,8 @@ export const useActivityNotifications = () => {
 	const subscribeToNotifyUser = useStream('notify-user');
 	const notificationUnsubscribersRef = useRef<Array<() => void>>([]);
 	const roomUnsubscribersRef = useRef<Array<() => void>>([]);
-	const getNotifications = useEndpoint('GET', '/v1/activity-notifications');
+	const getNotifications = useEndpoint('GET', '/v1/activity-hub.notifications');
+	const deleteNotifications = useEndpoint('POST', '/v1/activity-hub.notifications.delete');
 
 	queryClientRef.current = queryClient;
 
@@ -132,20 +132,20 @@ export const useActivityNotifications = () => {
 
 	const clearOne = useCallback(
 		async (id: string) => {
-			await Meteor.callAsync('activityNotifications:remove', id);
+			await deleteNotifications({ id });
 
 			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotification[] | undefined) => {
 				if (!oldData) return [];
 				return oldData.filter((n) => n._id !== id);
 			});
 		},
-		[queryClient, uid],
+		[deleteNotifications, queryClient, uid],
 	);
 
 	const clearAll = useCallback(async () => {
-		await Meteor.callAsync('activityNotifications:clearAll');
+		await deleteNotifications({});
 		queryClient.setQueryData(['activity-notifications', uid], []);
-	}, [queryClient, uid]);
+	}, [deleteNotifications, queryClient, uid]);
 
 	const getUnreadCount = useCallback(() => notifications.filter((n) => n.isUnread).length, [notifications]);
 

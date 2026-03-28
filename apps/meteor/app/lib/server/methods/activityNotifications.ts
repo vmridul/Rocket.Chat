@@ -1,7 +1,7 @@
 import { check } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 
-import { ActivityNotificationsCollection } from '../../collections/activityNotifications';
+import { clearActivityNotifications, removeActivityNotificationById } from '../lib/activityNotifications';
 
 Meteor.methods({
 	async 'activityNotifications:remove'(id: string) {
@@ -9,12 +9,12 @@ Meteor.methods({
 		if (!this.userId) {
 			throw new Meteor.Error('error-not-authorized', 'Not authorized', { method: 'activityNotifications:remove' });
 		}
-		await ActivityNotificationsCollection.removeAsync({ _id: id, userId: this.userId });
+		await removeActivityNotificationById({ uid: this.userId, id });
 	},
 	async 'activityNotifications:clearAll'() {
 		if (!this.userId) {
 			throw new Meteor.Error('error-not-authorized', 'Not authorized', { method: 'activityNotifications:clearAll' });
 		}
-		await ActivityNotificationsCollection.removeAsync({ userId: this.userId });
+		await clearActivityNotifications({ uid: this.userId });
 	},
 });

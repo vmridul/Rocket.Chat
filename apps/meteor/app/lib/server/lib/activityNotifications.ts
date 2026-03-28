@@ -24,6 +24,84 @@ const isNotificationUnread = ({ receivedAt, roomLastSeen }: { receivedAt: Date |
 	return true;
 };
 
+export const activityNotificationFilterPredicates = {
+	all: (_notification: ActivityNotificationRecord): boolean => true,
+	mentions: (notification: ActivityNotificationRecord): boolean => notification.type === 'mention',
+	highlights: (notification: ActivityNotificationRecord): boolean => notification.type === 'highlight',
+	reactions: (notification: ActivityNotificationRecord): boolean => notification.type === 'reaction',
+	threads: (notification: ActivityNotificationRecord): boolean => Boolean(notification.isThreadReply),
+	discussions: (notification: ActivityNotificationRecord): boolean =>
+		Boolean(notification.isDiscussion) || Boolean(notification.isDiscussionReply),
+	pins: (notification: ActivityNotificationRecord): boolean => notification.type === 'pin',
+} as const;
+
+export type ActivityNotificationFilter = keyof typeof activityNotificationFilterPredicates;
+
+const normalizeActivityNotificationType = (notification: ActivityNotificationRecord): ActivityNotificationRecord => {
+	if ((notification as ActivityNotificationRecord & { type: string }).type !== 'reply') {
+		return notification;
+	}
+
+	return {
+		...notification,
+		type: 'mention',
+	};
+};
+
+export const listActivityNotifications = async ({
+	userId,
+	filter = 'all',
+	limit = 300,
+}: {
+	userId: string;
+	filter?: ActivityNotificationFilter;
+	limit?: number;
+}): Promise<ActivityNotification[]> => {
+	const notifications = await ActivityNotificationsCollection.find(
+		{ userId },
+		{
+			sort: { receivedAt: -1 },
+			limit,
+		},
+	).fetchAsync();
+
+	const normalizedNotifications = notifications.map(normalizeActivityNotificationType);
+	const filteredNotifications = normalizedNotifications.filter(activityNotificationFilterPredicates[filter]);
+
+	return hydrateActivityNotificationsReadState({
+		userId,
+		notifications: filteredNotifications,
+	});
+};
+
+export const clearActivityNotifications = async ({ uid }: { uid: string }): Promise<void> => {
+	const notifications = await ActivityNotificationsCollection.find({ userId: uid }, { projection: { _id: 1, messageId: 1 } }).fetchAsync();
+
+	if (notifications.length === 0) {
+		return;
+	}
+
+	await ActivityNotificationsCollection.removeAsync({ userId: uid });
+
+	for (const notification of notifications) {
+		void api.broadcast('notify.activity-notification-removed', uid, { messageId: notification.messageId });
+	}
+};
+
+export const removeActivityNotificationById = async ({ uid, id }: { uid: string; id: string }): Promise<void> => {
+	const notification = await ActivityNotificationsCollection.findOneAsync({ _id: id, userId: uid });
+
+	if (!notification) {
+		return;
+	}
+
+	const removed = await ActivityNotificationsCollection.removeAsync({ _id: id, userId: uid });
+
+	if (removed) {
+		void api.broadcast('notify.activity-notification-removed', uid, { messageId: notification.messageId });
+	}
+};
+
 export const hydrateActivityNotificationsReadState = async ({
 	userId,
 	notifications,
