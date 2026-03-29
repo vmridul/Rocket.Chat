@@ -15,7 +15,7 @@ type ActivityNotificationFlags = {
 	isHighlighted?: boolean;
 };
 
-type ActivityNotificationMessage = Pick<IMessage, '_id' | 'tmid' | 't'>;
+type ActivityNotificationMessage = Pick<IMessage, '_id' | 'tmid' | 't' | 'msg' | 'u' | 'drid'>;
 type ActivityNotificationRoom = Pick<IRoom, '_id' | 't' | 'prid' | 'teamId'>;
 type ActivityNotificationSender = Pick<IUser, 'username' | 'name'>;
 
@@ -318,11 +318,16 @@ const writeActivityNotification = async ({
 		return updated > 0;
 	}
 
+	const finalInsertPayload = { ...insertPayload };
+	if (updatePayload.$set.text) {
+		delete (finalInsertPayload as any).text;
+	}
+
 	await ActivityNotificationsCollection.upsertAsync(
 		{ _id: docId, userId },
 		{
 			...updatePayload,
-			$setOnInsert: insertPayload,
+			$setOnInsert: finalInsertPayload,
 		},
 	);
 

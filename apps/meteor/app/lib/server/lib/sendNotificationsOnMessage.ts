@@ -329,7 +329,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 			return;
 		}
 
-		if (room.t === 'd') {
+		if (room.t === 'd' || room.prid) {
 			query.$or.push({
 				[notificationField]: 'mentions',
 			});
@@ -343,7 +343,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 		const serverField = kind === 'email' ? 'emailNotificationMode' : `${kind}Notifications`;
 		const serverPreference = settings.get(`Accounts_Default_User_Preferences_${serverField}`);
 
-		if (serverPreference === 'all' || hasMentionToAll || hasMentionToHere || room.t === 'd') {
+		if (serverPreference === 'all' || hasMentionToAll || hasMentionToHere || room.t === 'd' || room.prid) {
 			query.$or.push({
 				[notificationField]: { $exists: false },
 			});
@@ -361,8 +361,9 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 	const subscriptions = await Subscriptions.col.aggregate<SubscriptionAggregation>([{ $match: query }, lookup, filter, project]).toArray();
 
 	subscriptions.forEach((subscription) => {
-		const hasMentionToUser = mentionIds.includes(subscription.u._id);
+		const isDirectMention = mentionIdsWithoutGroups.includes(subscription.u._id);
 		const hasReplyToThread = usersInThread?.includes(subscription.u._id);
+		const hasMentionToUser = isDirectMention || hasReplyToThread;
 		const isThread = !!message.tmid && !message.tshow;
 		const isUnfollowedThread = isThread && !hasMentionToUser && !hasReplyToThread;
 
@@ -382,6 +383,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 					hasReplyToThread ||
 					isHighlighted ||
 					room.t === 'd' ||
+					Boolean(room.prid) ||
 					(!disableAllMessageNotifications && (hasMentionToAll || hasMentionToHere));
 			} else if (activityNotifications === 'nothing') {
 				shouldCreateActivityNotification = false;
@@ -390,7 +392,11 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 					shouldCreateActivityNotification = true;
 				} else if (desktopNotifications !== 'nothing' && (desktopNotifications || defaultPreferences !== 'nothing')) {
 					shouldCreateActivityNotification =
-						hasMentionToUser || (!disableAllMessageNotifications && (hasMentionToAll || hasMentionToHere)) || room.t === 'd' || isHighlighted;
+						hasMentionToUser ||
+						(!disableAllMessageNotifications && (hasMentionToAll || hasMentionToHere)) ||
+						room.t === 'd' ||
+						Boolean(room.prid) ||
+						isHighlighted;
 				}
 
 				if (
@@ -420,7 +426,7 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 					sender,
 					text: notificationMessage,
 					flags: {
-						hasMentionToUser,
+						hasMentionToUser: isDirectMention,
 						hasReplyToThread,
 						isUnfollowedThread,
 						isHighlighted,
