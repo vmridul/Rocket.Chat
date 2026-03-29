@@ -38,6 +38,8 @@ type SubscriptionAggregation = {
 	| 'userHighlights'
 	| 'u'
 	| 'audioNotificationValue'
+	| 'activityNotifications'
+	| 'activityPrefOrigin'
 >;
 
 type WithRequiredProperty<Type, Key extends keyof Type> = Type & {
