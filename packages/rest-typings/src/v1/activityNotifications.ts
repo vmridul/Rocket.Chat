@@ -25,38 +25,52 @@ export const isActivityHubNotificationsDeleteProps = ajv.compile<ActivityHubNoti
 	ActivityHubNotificationsDeletePropsSchema,
 );
 
+import type { PaginatedRequest } from '../helpers/PaginatedRequest';
+import type { PaginatedResult } from '../helpers/PaginatedResult';
+
+export type ActivityNotificationGETParams = PaginatedRequest<{
+	searchText?: string;
+	roomType?: string;
+	messageType?: string;
+	unread?: string;
+	fromDate?: string;
+	toDate?: string;
+	usernames?: string[];
+	roomIds?: string[];
+}>;
+
 export type ActivityNotificationsEndpoints = {
 	'/v1/activity-hub.notifications': {
-		GET: () => {
+		GET: (params: ActivityNotificationGETParams) => PaginatedResult<{
 			notifications: ActivityNotification[];
-		};
+		}>;
 	};
 	'/v1/activity-hub.notifications.delete': {
 		POST: (params: ActivityHubNotificationsDeleteProps) => void;
 	};
 	'/v1/activity-hub.threads': {
-		GET: () => {
+		GET: (params: ActivityNotificationGETParams) => PaginatedResult<{
 			notifications: ActivityNotification[];
-		};
+		}>;
 	};
 	'/v1/activity-hub.mentions': {
-		GET: () => {
+		GET: (params: ActivityNotificationGETParams) => PaginatedResult<{
 			notifications: ActivityNotification[];
-		};
+		}>;
 	};
 	'/v1/activity-hub.reactions': {
-		GET: () => {
+		GET: (params: ActivityNotificationGETParams) => PaginatedResult<{
 			notifications: ActivityNotification[];
-		};
+		}>;
 	};
 	'/v1/activity-hub.discussions': {
-		GET: () => {
+		GET: (params: ActivityNotificationGETParams) => PaginatedResult<{
 			notifications: ActivityNotification[];
-		};
+		}>;
 	};
 	'/v1/activity-hub.pins': {
-		GET: () => {
+		GET: (params: ActivityNotificationGETParams) => PaginatedResult<{
 			notifications: ActivityNotification[];
-		};
+		}>;
 	};
 };

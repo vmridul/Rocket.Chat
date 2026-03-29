@@ -1,27 +1,56 @@
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Box, Button, MessageDivider } from '@rocket.chat/fuselage';
 import { ContextualbarEmptyContent, VirtualizedScrollbars } from '@rocket.chat/ui-client';
 import { Virtuoso } from 'react-virtuoso';
 import { useTranslation } from 'react-i18next';
+import { useDebouncedValue } from '@rocket.chat/fuselage-hooks';
+import debounce from 'lodash.debounce';
 
 import FilterByText from '/client/components/FilterByText';
 import { useFormatDate } from '/client/hooks/useFormatDate';
-import { isMessageNewDay } from '/client/views/room/MessageList/lib/isMessageNewDay';
 
 import { useActivityCenterContext } from '../../contexts/ActivityCenterContext';
-import { useMentionsQuery } from '../../hooks/useMentionsQuery';
+import { useActivityNotifications } from '../../hooks/useActivityNotifications';
+import ActivityItem from '../allActivity/AllActivityItem';
 
-import MentionsMessageItem from './MentionsMessageItem';
+let lastScrollOffsetMentions = 0;
 
 const MentionsMessagesList = (): ReactElement => {
 	const { t } = useTranslation();
 	const formatDate = useFormatDate();
-	const { data, isFetched, isLoading, isError } = useMentionsQuery();
-	const { setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
+	const { filtersQuery, setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
 	const [searchText, setSearchText] = useState('');
+	const debouncedSearchText = useDebouncedValue(searchText, 400);
 
-	const filteredMentions = data?.filter((message) => message.msg?.toLowerCase().includes(searchText.toLowerCase()));
+	const fetchParams = useMemo(() => ({
+		...filtersQuery,
+		messageType: 'mention' as const,
+	}), [filtersQuery]);
+
+	const {
+		notifications,
+		clearOne,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+		isLoading,
+	} = useActivityNotifications(fetchParams, debouncedSearchText);
+
+	const setScrollOffsetDebounced = useMemo(
+		() =>
+			debounce((offset: number) => {
+				lastScrollOffsetMentions = offset;
+			}, 300),
+		[],
+	);
+
+	const isNewDay = (receivedAt: Date | string, previousReceivedAt?: Date | string): boolean => {
+		if (!previousReceivedAt) {
+			return true;
+		}
+		return new Date(receivedAt).toDateString() !== new Date(previousReceivedAt).toDateString();
+	};
 
 	return (
 		<Box height='100%' display='flex' flexDirection='column'>
@@ -34,24 +63,33 @@ const MentionsMessagesList = (): ReactElement => {
 				</Button>
 			</Box>
 
-			{isLoading && <div>{t('Loading')}</div>}
-			{isError && <div>{t('Error')}</div>}
-			{isFetched && filteredMentions?.length === 0 && <ContextualbarEmptyContent title={t('No_mentions_found')} />}
+			{isLoading && <Box paddingInline={16}>{t('Loading')}</Box>}
+			{!isLoading && notifications.length === 0 && <ContextualbarEmptyContent title={t('No_mentions_found')} />}
 
-			{isFetched && filteredMentions && filteredMentions.length > 0 && (
+			{notifications.length > 0 && (
 				<Box flexGrow={1} minHeight={0}>
 					<VirtualizedScrollbars>
 						<Virtuoso
-							data={filteredMentions}
+							data={notifications}
 							overscan={25}
-							itemContent={(index, message) => {
-								const previous = filteredMentions[index - 1];
-								const newDay = isMessageNewDay(message, previous);
+							initialScrollTop={lastScrollOffsetMentions}
+							onScroll={(e) => {
+								const target = e.target as HTMLElement;
+								setScrollOffsetDebounced(target.scrollTop);
+							}}
+							endReached={() => {
+								if (hasNextPage && !isFetchingNextPage) {
+									fetchNextPage();
+								}
+							}}
+							itemContent={(index, notification) => {
+								const previous = notifications[index - 1];
+								const newDay = isNewDay(notification.receivedAt, previous?.receivedAt);
 
 								return (
 									<>
-										{newDay && <MessageDivider>{formatDate(message.ts)}</MessageDivider>}
-										<MentionsMessageItem message={message} />
+										{newDay && <MessageDivider>{formatDate(new Date(notification.receivedAt))}</MessageDivider>}
+										<ActivityItem notification={notification} sequential={false} onClear={clearOne} />
 									</>
 								);
 							}}

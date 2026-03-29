@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { IMessage } from '@rocket.chat/core-typings';
 import type { ActivityNotification as ActivityNotificationItem } from '@rocket.chat/rest-typings';
 import { useUserId, useEndpoint, useStream } from '@rocket.chat/ui-contexts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import type { ActivityCenterFiltersQuery } from '../contexts/ActivityCenterContext';
+import type { PaginatedResult } from '@rocket.chat/rest-typings';
 
 export type ActivityNotification = ActivityNotificationItem;
 
-export const useActivityNotifications = () => {
+export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, searchText: string) => {
 	const uid = useUserId();
 	const queryClient = useQueryClient();
 	const queryClientRef = useRef(queryClient);
@@ -20,17 +21,36 @@ export const useActivityNotifications = () => {
 
 	queryClientRef.current = queryClient;
 
-	const { data, isLoading } = useQuery({
-		queryKey: ['activity-notifications', uid],
-		queryFn: async () => {
-			const result = await getNotifications();
-			return result.notifications || [];
+	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+		queryKey: ['activity-notifications', uid, filters, searchText],
+		queryFn: async ({ pageParam = 0 }): Promise<PaginatedResult<{ notifications: ActivityNotification[] }>> => {
+			const result = await getNotifications({
+				offset: pageParam,
+				count: 50,
+				searchText,
+				...(filters.roomType !== 'all' && { roomType: filters.roomType }),
+				...(filters.messageType !== 'all' && { messageType: filters.messageType }),
+				...(filters.unread !== 'all' && { unread: filters.unread }),
+				...(filters.fromDate && { fromDate: filters.fromDate }),
+				...(filters.toDate && { toDate: filters.toDate }),
+				...(filters.usernames && filters.usernames.length > 0 && { usernames: filters.usernames }),
+				...(filters.roomIds && filters.roomIds.length > 0 && { roomIds: filters.roomIds }),
+			});
+			return result;
 		},
+		getNextPageParam: (lastPage) => {
+			const nextOffset = lastPage.offset + lastPage.count;
+			return nextOffset < lastPage.total ? nextOffset : undefined;
+		},
+		initialPageParam: 0,
 		enabled: !!uid,
-		staleTime: Infinity, // rely on streams for updates
+		staleTime: Infinity,
 	});
 
-	const notifications = data || [];
+	const notifications = useMemo(() => {
+		return data?.pages.flatMap((page) => page.notifications) || [];
+	}, [data]);
+
 	const messageIdsByRoom = useMemo(() => {
 		return notifications.reduce((rooms, notification) => {
 			const roomMessageIds = rooms.get(notification.room._id) ?? new Set<string>();
@@ -56,23 +76,37 @@ export const useActivityNotifications = () => {
 		if (!uid) {
 			return cleanupNotificationSubscriptions;
 		}
+
 		const handleNotificationEvent = (event: unknown) => {
 			const notification = event as ActivityNotification;
 
-			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldQueryData: ActivityNotification[] | undefined) => {
-				const oldData = oldQueryData || [];
+			queryClientRef.current.setQueryData(
+				['activity-notifications', uid, filters, searchText],
+				(oldData: any) => {
+					if (!oldData || !oldData.pages) return oldData;
 
-				const index = oldData.findIndex((n) => n.message._id === notification.message._id);
+					let found = false;
+					const newPages = oldData.pages.map((page: any, index: number) => {
+						const existingIndex = page.notifications.findIndex((n: any) => n.message._id === notification.message._id);
+						if (existingIndex > -1) {
+							found = true;
+							const newNotifications = [...page.notifications];
+							newNotifications[existingIndex] = notification;
+							return { ...page, notifications: newNotifications };
+						}
+						return page;
+					});
 
-				if (index > -1) {
-					const newData = [...oldData];
-					newData[index] = notification;
+					if (!found) {
+						newPages[0] = {
+							...newPages[0],
+							notifications: [notification, ...newPages[0].notifications].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()),
+						};
+					}
 
-					return newData.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+					return { ...oldData, pages: newPages };
 				}
-
-				return [notification, ...oldData].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-			});
+			);
 
 			void queryClientRef.current.invalidateQueries({
 				queryKey: ['activity-center', 'notification-message', notification.message._id],
@@ -80,10 +114,17 @@ export const useActivityNotifications = () => {
 		};
 
 		const handleRemovalEvent = ({ messageId }: { messageId: string }) => {
-			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldData: ActivityNotification[] | undefined) => {
-				if (!oldData) return [];
-				return oldData.filter((n) => n.message._id !== messageId);
-			});
+			queryClientRef.current.setQueryData(
+				['activity-notifications', uid, filters, searchText],
+				(oldData: any) => {
+					if (!oldData || !oldData.pages) return oldData;
+					const newPages = oldData.pages.map((page: any) => ({
+						...page,
+						notifications: page.notifications.filter((n: any) => n.message._id !== messageId),
+					}));
+					return { ...oldData, pages: newPages };
+				}
+			);
 		};
 
 		const unsub = notifyUserStream(`${uid}/activity-notification`, handleNotificationEvent);
@@ -91,7 +132,7 @@ export const useActivityNotifications = () => {
 		notificationUnsubscribersRef.current = [unsub, unsubRemoval];
 
 		return cleanupNotificationSubscriptions;
-	}, [uid, notifyUserStream, cleanupNotificationSubscriptions]);
+	}, [uid, filters, searchText, notifyUserStream, cleanupNotificationSubscriptions]);
 
 	useEffect(() => {
 		cleanupRoomSubscriptions();
@@ -101,7 +142,7 @@ export const useActivityNotifications = () => {
 		}
 
 		roomUnsubscribersRef.current = [...messageIdsByRoom.entries()].map(([rid, messageIds]) =>
-			subscribeToRoomMessages(rid, (message: IMessage) => {
+			subscribeToRoomMessages(rid, (message: any) => {
 				if (!messageIds.has(message._id)) {
 					return;
 				}
@@ -110,7 +151,7 @@ export const useActivityNotifications = () => {
 					queryKey: ['activity-center', 'notification-message', message._id],
 					exact: true,
 				});
-			}),
+			})
 		);
 
 		return cleanupRoomSubscriptions;
@@ -124,7 +165,6 @@ export const useActivityNotifications = () => {
 		return subscribeToNotifyUser(`${uid}/subscriptions-changed`, () => {
 			void queryClientRef.current.invalidateQueries({
 				queryKey: ['activity-notifications', uid],
-				exact: true,
 			});
 		});
 	}, [uid, subscribeToNotifyUser]);
@@ -133,17 +173,23 @@ export const useActivityNotifications = () => {
 		async (id: string) => {
 			await deleteNotifications({ id });
 
-			queryClient.setQueryData(['activity-notifications', uid], (oldData: ActivityNotification[] | undefined) => {
-				if (!oldData) return [];
-				return oldData.filter((n) => n._id !== id);
+			queryClient.setQueryData(['activity-notifications', uid, filters, searchText], (oldData: any) => {
+				if (!oldData || !oldData.pages) return oldData;
+				const newPages = oldData.pages.map((page: any) => ({
+					...page,
+					notifications: page.notifications.filter((n: any) => n._id !== id),
+				}));
+				return { ...oldData, pages: newPages };
 			});
 		},
-		[deleteNotifications, queryClient, uid],
+		[deleteNotifications, queryClient, uid, filters, searchText]
 	);
 
 	const clearAll = useCallback(async () => {
 		await deleteNotifications({});
-		queryClient.setQueryData(['activity-notifications', uid], []);
+		void queryClient.invalidateQueries({
+			queryKey: ['activity-notifications', uid],
+		});
 	}, [deleteNotifications, queryClient, uid]);
 
 	const getUnreadCount = useCallback(() => notifications.filter((n) => n.isUnread).length, [notifications]);
@@ -155,7 +201,10 @@ export const useActivityNotifications = () => {
 			clearOne,
 			clearAll,
 			getUnreadCount,
+			fetchNextPage,
+			hasNextPage,
+			isFetchingNextPage,
 		}),
-		[notifications, isLoading, clearOne, clearAll, getUnreadCount],
+		[notifications, isLoading, clearOne, clearAll, getUnreadCount, fetchNextPage, hasNextPage, isFetchingNextPage]
 	);
 };

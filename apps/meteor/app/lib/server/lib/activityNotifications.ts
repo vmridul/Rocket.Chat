@@ -358,22 +358,107 @@ const broadcastActivityNotificationRemoval = ({ userId, messageId }: { userId: s
 export const listActivityNotifications = async ({
 	userId,
 	filter = 'all',
-	limit = 300,
+	offset = 0,
+	count = 50,
+	searchText,
+	roomType,
+	messageType,
+	unread,
+	fromDate,
+	toDate,
+	usernames,
+	roomIds,
 }: {
 	userId: string;
 	filter?: ActivityNotificationFilter;
-	limit?: number;
+	offset?: number;
+	count?: number;
+	searchText?: string;
+	roomType?: string;
+	messageType?: string;
+	unread?: string;
+	fromDate?: string;
+	toDate?: string;
+	usernames?: string[];
+	roomIds?: string[];
 }) => {
-	// Load only rows for this filter
-	const notifications = await ActivityNotificationsCollection.find(getActivityNotificationSelector({ userId, filter }), {
-		sort: { receivedAt: -1 },
-		limit,
-	}).fetchAsync();
+	const query: Record<string, any> = getActivityNotificationSelector({ userId, filter });
 
-	return hydrateActivityNotificationsReadState({
+	if (searchText) {
+		query.text = { $regex: searchText, $options: 'i' };
+	}
+
+	if (roomType && roomType !== 'all') {
+		query['room.t'] = roomType;
+	}
+
+	if (messageType && messageType !== 'all') {
+		if (messageType === 'thread') {
+			query['message.tmid'] = { $exists: true };
+		} else if (messageType === 'discussion') {
+			query.$or = [{ kind: 'discussion-created' }, { 'room.prid': { $exists: true } }];
+		} else if (messageType === 'pin') {
+			query.kind = 'pin';
+		} else {
+			query.kind = messageType;
+		}
+	}
+
+	if (usernames && usernames.length > 0) {
+		query['sender.username'] = { $in: usernames };
+	}
+
+	if (roomIds && roomIds.length > 0) {
+		query['room._id'] = { $in: roomIds };
+	}
+
+	if (fromDate || toDate) {
+		query.receivedAt = {};
+		if (fromDate) {
+			const date = new Date(fromDate);
+			date.setHours(0, 0, 0, 0);
+			query.receivedAt.$gte = date;
+		}
+		if (toDate) {
+			const date = new Date(toDate);
+			date.setHours(23, 59, 59, 999);
+			query.receivedAt.$lte = date;
+		}
+	}
+
+	const hasMemoryFilter = unread && unread !== 'all';
+
+	const options: any = { sort: { receivedAt: -1 } };
+	if (!hasMemoryFilter) {
+		options.skip = offset;
+		options.limit = count;
+	} else {
+		options.limit = 1000;
+	}
+
+	const notifications = await ActivityNotificationsCollection.find(query, options).fetchAsync();
+	const hydrated = await hydrateActivityNotificationsReadState({
 		userId,
 		notifications,
 	});
+
+	let finalNotifications = hydrated;
+	let total = 0;
+
+	if (!hasMemoryFilter) {
+		total = await ActivityNotificationsCollection.countDocuments(query);
+	} else {
+		finalNotifications = hydrated.filter((n) => (unread === 'unread' ? n.isUnread : !n.isUnread));
+		total = finalNotifications.length;
+		finalNotifications = finalNotifications.slice(offset, offset + count);
+	}
+
+	return {
+		notifications: finalNotifications,
+		total,
+		count: finalNotifications.length,
+		offset,
+	};
 };
 
 export const clearActivityNotifications = async ({ uid }: { uid: string }): Promise<void> => {

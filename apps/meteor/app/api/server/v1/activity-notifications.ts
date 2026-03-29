@@ -5,6 +5,9 @@ import {
 	validateBadRequestErrorResponse,
 	validateUnauthorizedErrorResponse,
 } from '@rocket.chat/rest-typings';
+import type { PaginatedResult } from '@rocket.chat/rest-typings';
+
+import { getPaginationItems } from '../helpers/getPaginationItems';
 
 import {
 	clearActivityNotifications,
@@ -64,7 +67,7 @@ const activityNotificationSchema = {
 		},
 		kind: {
 			type: 'string',
-			enum: ['message', 'mention', 'highlight', 'reaction', 'reply', 'pin', 'discussion-created'],
+			enum: ['message', 'mention', 'highlight', 'reaction', 'reply', 'pin', 'discussion-created', 'star'],
 		},
 		sender: {
 			type: 'object',
@@ -95,9 +98,9 @@ const activityNotificationSchema = {
 	additionalProperties: false,
 };
 
-type ActivityNotificationsResponse = {
+type ActivityNotificationsResponse = PaginatedResult<{
 	notifications: ActivityNotification[];
-};
+}>;
 
 const activityNotificationsResponseSchema = ajv.compile<ActivityNotificationsResponse>({
 	type: 'object',
@@ -106,12 +109,21 @@ const activityNotificationsResponseSchema = ajv.compile<ActivityNotificationsRes
 			type: 'boolean',
 			enum: [true],
 		},
+		count: {
+			type: 'number',
+		},
+		offset: {
+			type: 'number',
+		},
+		total: {
+			type: 'number',
+		},
 		notifications: {
 			type: 'array',
 			items: activityNotificationSchema,
 		},
 	},
-	required: ['success', 'notifications'],
+	required: ['success', 'count', 'offset', 'total', 'notifications'],
 	additionalProperties: false,
 });
 
@@ -138,13 +150,26 @@ const activityNotificationsEndpointProps = {
 
 const activityNotificationsAction =
 	(filter: ActivityNotificationFilter) =>
-	async function action() {
-		const notifications = await listActivityNotifications({
+	async function action(this: any) {
+		const { offset, count } = await getPaginationItems(this.queryParams);
+		const { searchText, roomType, messageType, unread, fromDate, toDate, usernames, roomIds } = this.queryParams;
+
+		const result = await listActivityNotifications({
 			userId: this.userId,
 			filter,
+			offset,
+			count,
+			searchText,
+			roomType,
+			messageType,
+			unread,
+			fromDate,
+			toDate,
+			usernames: usernames ? (Array.isArray(usernames) ? usernames : [usernames]) : undefined,
+			roomIds: roomIds ? (Array.isArray(roomIds) ? roomIds : [roomIds]) : undefined,
 		});
 
-		return API.v1.success({ notifications });
+		return API.v1.success(result);
 	};
 
 API.v1.get('activity-hub.notifications', activityNotificationsEndpointProps, activityNotificationsAction('all'))

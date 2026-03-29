@@ -5,6 +5,7 @@ import { ContextualbarEmptyContent, GenericModal, VirtualizedScrollbars } from '
 import { useSetModal } from '@rocket.chat/ui-contexts';
 import { Virtuoso } from 'react-virtuoso';
 import { useTranslation } from 'react-i18next';
+import { useDebouncedValue } from '@rocket.chat/fuselage-hooks';
 
 import FilterByText from '/client/components/FilterByText';
 import { useFormatDate } from '/client/hooks/useFormatDate';
@@ -19,11 +20,19 @@ let lastScrollOffset = 0;
 const AllActivityList = (): ReactElement => {
 	const { t } = useTranslation();
 	const formatDate = useFormatDate();
-	const { notifications, clearOne, clearAll } = useActivityNotifications();
-	const { filtersQuery, setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
 	const setModal = useSetModal();
+	const { filtersQuery, setIsFiltersOpen, hasAppliedFilters } = useActivityCenterContext();
 	const [searchText, setSearchText] = useState('');
-	const normalizedSearch = searchText.toLowerCase();
+	const debouncedSearchText = useDebouncedValue(searchText, 400);
+
+	const {
+		notifications,
+		clearOne,
+		clearAll,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useActivityNotifications(filtersQuery, debouncedSearchText);
 
 	const setScrollOffsetDebounced = useMemo(
 		() =>
@@ -63,60 +72,14 @@ const AllActivityList = (): ReactElement => {
 		return new Date(receivedAt).toDateString() !== new Date(previousReceivedAt).toDateString();
 	};
 
-	const filteredNotifications = useMemo(
-		() =>
-			notifications.filter((notification) => {
-				const matchesSearch = (notification.text || '').toLowerCase().includes(normalizedSearch);
-				const matchesRoomType = filtersQuery.roomType === 'all' || notification.room.t === filtersQuery.roomType;
-				const selectedUsernames = filtersQuery.usernames || [];
-				const selectedRoomIds = filtersQuery.roomIds || [];
-				const matchesUsername = selectedUsernames.length === 0 || selectedUsernames.includes(notification.sender.username || '');
-				const matchesRoom = selectedRoomIds.length === 0 || selectedRoomIds.includes(notification.room._id);
-
-				const matchesUnread =
-					filtersQuery.unread === 'all' ||
-					(filtersQuery.unread === 'unread' && notification.isUnread) ||
-					(filtersQuery.unread === 'read' && !notification.isUnread);
-
-				const matchesMessageType =
-					filtersQuery.messageType === 'all' ||
-					(filtersQuery.messageType === 'mention' && notification.kind === 'mention') ||
-					(filtersQuery.messageType === 'highlight' && notification.kind === 'highlight') ||
-					(filtersQuery.messageType === 'reaction' && notification.kind === 'reaction') ||
-					(filtersQuery.messageType === 'thread' && Boolean(notification.message.tmid)) ||
-					(filtersQuery.messageType === 'discussion' && (notification.kind === 'discussion-created' || Boolean(notification.room.prid))) ||
-					(filtersQuery.messageType === 'pin' && notification.kind === 'pin');
-
-				let matchesDate = true;
-				if (filtersQuery.fromDate || filtersQuery.toDate) {
-					const notificationTime = new Date(notification.receivedAt).getTime();
-					if (filtersQuery.fromDate) {
-						const fromDate = new Date(filtersQuery.fromDate);
-						fromDate.setHours(0, 0, 0, 0);
-						matchesDate = matchesDate && notificationTime >= fromDate.getTime();
-					}
-					if (filtersQuery.toDate) {
-						const toDate = new Date(filtersQuery.toDate);
-						toDate.setHours(23, 59, 59, 999);
-						matchesDate = matchesDate && notificationTime <= toDate.getTime();
-					}
-				}
-
-				return (
-					matchesSearch && matchesRoomType && matchesUsername && matchesRoom && matchesDate && matchesUnread && matchesMessageType
-				);
-			}),
-		[notifications, normalizedSearch, filtersQuery],
-	);
-
 	const countsByDate = useMemo(() => {
 		const counts = new Map<string, number>();
-		filteredNotifications.forEach((notification) => {
+		notifications.forEach((notification) => {
 			const dateKey = new Date(notification.receivedAt).toDateString();
 			counts.set(dateKey, (counts.get(dateKey) || 0) + 1);
 		});
 		return counts;
-	}, [filteredNotifications]);
+	}, [notifications]);
 
 	return (
 		<Box height='100%' display='flex' flexDirection='column'>
@@ -139,21 +102,26 @@ const AllActivityList = (): ReactElement => {
 				</Button>
 			</Box>
 
-			{filteredNotifications.length === 0 && <ContextualbarEmptyContent title={t('No Notifications')} />}
+			{notifications.length === 0 && <ContextualbarEmptyContent title={t('No Notifications')} />}
 
-			{filteredNotifications.length > 0 && (
+			{notifications.length > 0 && (
 				<Box flexGrow={1} minHeight={0}>
 					<VirtualizedScrollbars>
 						<Virtuoso
-							data={filteredNotifications}
+							data={notifications}
 							overscan={25}
 							initialScrollTop={lastScrollOffset}
 							onScroll={(e) => {
 								const target = e.target as HTMLElement;
 								setScrollOffsetDebounced(target.scrollTop);
 							}}
+							endReached={() => {
+								if (hasNextPage && !isFetchingNextPage) {
+									fetchNextPage();
+								}
+							}}
 							itemContent={(index, notification) => {
-								const previous = filteredNotifications[index - 1];
+								const previous = notifications[index - 1];
 								const newDay = isNewDay(notification.receivedAt, previous?.receivedAt);
 
 								return (
