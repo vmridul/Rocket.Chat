@@ -412,21 +412,23 @@ export async function sendMessageNotifications(message: IMessage, room: IRoom, u
 		}
 
 		if (shouldCreateActivityNotification) {
-			void createActivityNotification({
-				uid: subscription.u._id,
-				message,
-				room,
-				roomName: room.fname || room.name || subscription.name,
-				sender,
-				text: notificationMessage,
-				hasMentionToUser,
-				hasReplyToThread,
-				isUnfollowedThread,
-				isHighlighted,
-				hasMentionToAll,
-				hasMentionToHere,
-				isTeam: !!(room.teamMain || (room.teamId && room._id === room.teamId)),
-			});
+				void createActivityNotification({
+					uid: subscription.u._id,
+					message,
+					room,
+					roomName: room.fname || room.name || subscription.name,
+					sender,
+					text: notificationMessage,
+					flags: {
+						hasMentionToUser,
+						hasReplyToThread,
+						isUnfollowedThread,
+						isHighlighted,
+						hasMentionToAll,
+						hasMentionToHere,
+					},
+					teamId: room.teamMain || (room.teamId && room._id === room.teamId) ? room.teamId : undefined,
+				});
 		}
 
 		void sendNotification({

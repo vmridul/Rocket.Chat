@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { IMessage } from '@rocket.chat/core-typings';
+import type { ActivityNotification as ActivityNotificationItem } from '@rocket.chat/rest-typings';
 import { useUserId, useEndpoint, useStream } from '@rocket.chat/ui-contexts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ActivityNotification as ActivityNotificationItem } from '/app/lib/collections/activityNotifications';
 
 export type ActivityNotification = ActivityNotificationItem;
 
@@ -33,9 +33,9 @@ export const useActivityNotifications = () => {
 	const notifications = data || [];
 	const messageIdsByRoom = useMemo(() => {
 		return notifications.reduce((rooms, notification) => {
-			const roomMessageIds = rooms.get(notification.rid) ?? new Set<string>();
-			roomMessageIds.add(notification.messageId);
-			rooms.set(notification.rid, roomMessageIds);
+			const roomMessageIds = rooms.get(notification.room._id) ?? new Set<string>();
+			roomMessageIds.add(notification.message._id);
+			rooms.set(notification.room._id, roomMessageIds);
 			return rooms;
 		}, new Map<string, Set<string>>());
 	}, [notifications]);
@@ -62,8 +62,7 @@ export const useActivityNotifications = () => {
 			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldQueryData: ActivityNotification[] | undefined) => {
 				const oldData = oldQueryData || [];
 
-				// Match by messageId (thread root id) instead of _id
-				const index = oldData.findIndex((n) => n.messageId === notification.messageId);
+				const index = oldData.findIndex((n) => n.message._id === notification.message._id);
 
 				if (index > -1) {
 					const newData = [...oldData];
@@ -76,14 +75,14 @@ export const useActivityNotifications = () => {
 			});
 
 			void queryClientRef.current.invalidateQueries({
-				queryKey: ['activity-center', 'notification-message', notification.messageId],
+				queryKey: ['activity-center', 'notification-message', notification.message._id],
 			});
 		};
 
 		const handleRemovalEvent = ({ messageId }: { messageId: string }) => {
 			queryClientRef.current.setQueryData(['activity-notifications', uid], (oldData: ActivityNotification[] | undefined) => {
 				if (!oldData) return [];
-				return oldData.filter((n) => n.messageId !== messageId);
+				return oldData.filter((n) => n.message._id !== messageId);
 			});
 		};
 

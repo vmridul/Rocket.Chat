@@ -1,5 +1,5 @@
 import { Mongo } from 'meteor/mongo';
-import type { ActivityNotificationRecord } from '@rocket.chat/rest-typings';
+import type { ActivityNotificationRecord } from '@rocket.chat/core-typings';
 
 type ActivityNotification = ActivityNotificationRecord & {
 	isUnread: boolean;

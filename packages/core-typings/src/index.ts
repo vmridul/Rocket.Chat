@@ -51,6 +51,7 @@ export * from './IEmoji';
 export * from './IEmojiCustom';
 export * from './ICustomEmojiDescriptor';
 export * from './IAnalytics';
+export * from './IActivityNotification';
 export * from './ICredentialToken';
 export * from './IAvatar';
 export * from './ICustomUserStatus';

@@ -1,6 +1,7 @@
 import '../lib/MessageTypes';
 import './lib/bugsnag';
 import './lib/debug';
+import './lib/activityNotificationsCallbacks';
 import './lib/loginErrorMessageOverride';
 import './oauth/oauth';
 import './oauth/facebook';

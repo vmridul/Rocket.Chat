@@ -23,18 +23,48 @@ const activityNotificationSchema = {
 		userId: {
 			type: 'string',
 		},
-		messageId: {
-			type: 'string',
+		message: {
+			type: 'object',
+			properties: {
+				_id: {
+					type: 'string',
+				},
+				tmid: {
+					type: 'string',
+					nullable: true,
+				},
+			},
+			required: ['_id'],
+			additionalProperties: false,
 		},
-		rid: {
-			type: 'string',
+		room: {
+			type: 'object',
+			properties: {
+				_id: {
+					type: 'string',
+				},
+				name: {
+					type: 'string',
+				},
+				t: {
+					type: 'string',
+					enum: ['c', 'p', 'd'],
+				},
+				prid: {
+					type: 'string',
+					nullable: true,
+				},
+				teamId: {
+					type: 'string',
+					nullable: true,
+				},
+			},
+			required: ['_id', 'name', 't'],
+			additionalProperties: false,
 		},
-		roomName: {
+		kind: {
 			type: 'string',
-			nullable: true,
-		},
-		roomType: {
-			type: 'string',
+			enum: ['message', 'mention', 'highlight', 'reaction', 'reply', 'pin', 'discussion-created'],
 		},
 		sender: {
 			type: 'object',
@@ -54,34 +84,14 @@ const activityNotificationSchema = {
 		text: {
 			type: 'string',
 		},
-		type: {
-			type: 'string',
-			enum: ['message', 'mention', 'highlight', 'reaction', 'pin'],
-		},
 		receivedAt: {
 			anyOf: [{ type: 'string' }, { type: 'object' }],
-		},
-		isThreadReply: {
-			type: 'boolean',
-			nullable: true,
-		},
-		isDiscussion: {
-			type: 'boolean',
-			nullable: true,
-		},
-		isDiscussionReply: {
-			type: 'boolean',
-			nullable: true,
-		},
-		isTeam: {
-			type: 'boolean',
-			nullable: true,
 		},
 		isUnread: {
 			type: 'boolean',
 		},
 	},
-	required: ['_id', 'userId', 'messageId', 'rid', 'roomType', 'sender', 'text', 'type', 'receivedAt', 'isUnread'],
+	required: ['_id', 'userId', 'message', 'room', 'kind', 'sender', 'text', 'receivedAt', 'isUnread'],
 	additionalProperties: false,
 };
 
@@ -138,13 +148,11 @@ const activityNotificationsAction =
 	};
 
 API.v1.get('activity-hub.notifications', activityNotificationsEndpointProps, activityNotificationsAction('all'))
-	.get('activity-hub.notifications.mentions', activityNotificationsEndpointProps, activityNotificationsAction('mentions'))
-	.get('activity-hub.notifications.highlights', activityNotificationsEndpointProps, activityNotificationsAction('highlights'))
-	.get('activity-hub.notifications.reactions', activityNotificationsEndpointProps, activityNotificationsAction('reactions'))
-	.get('activity-hub.notifications.threads', activityNotificationsEndpointProps, activityNotificationsAction('threads'))
-	.get('activity-hub.notifications.discussions', activityNotificationsEndpointProps, activityNotificationsAction('discussions'))
-	.get('activity-hub.notifications.pins', activityNotificationsEndpointProps, activityNotificationsAction('pins'))
-	.get('activity-notifications', activityNotificationsEndpointProps, activityNotificationsAction('all'))
+	.get('activity-hub.threads', activityNotificationsEndpointProps, activityNotificationsAction('threads'))
+	.get('activity-hub.mentions', activityNotificationsEndpointProps, activityNotificationsAction('mentions'))
+	.get('activity-hub.reactions', activityNotificationsEndpointProps, activityNotificationsAction('reactions'))
+	.get('activity-hub.discussions', activityNotificationsEndpointProps, activityNotificationsAction('discussions'))
+	.get('activity-hub.pins', activityNotificationsEndpointProps, activityNotificationsAction('pins'))
 	.post(
 		'activity-hub.notifications.delete',
 		{

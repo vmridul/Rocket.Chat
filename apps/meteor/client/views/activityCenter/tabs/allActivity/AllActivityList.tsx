@@ -67,11 +67,11 @@ const AllActivityList = (): ReactElement => {
 		() =>
 			notifications.filter((notification) => {
 				const matchesSearch = (notification.text || '').toLowerCase().includes(normalizedSearch);
-				const matchesRoomType = filtersQuery.roomType === 'all' || notification.roomType === filtersQuery.roomType;
+				const matchesRoomType = filtersQuery.roomType === 'all' || notification.room.t === filtersQuery.roomType;
 				const selectedUsernames = filtersQuery.usernames || [];
 				const selectedRoomIds = filtersQuery.roomIds || [];
 				const matchesUsername = selectedUsernames.length === 0 || selectedUsernames.includes(notification.sender.username || '');
-				const matchesRoom = selectedRoomIds.length === 0 || selectedRoomIds.includes(notification.rid);
+				const matchesRoom = selectedRoomIds.length === 0 || selectedRoomIds.includes(notification.room._id);
 
 				const matchesUnread =
 					filtersQuery.unread === 'all' ||
@@ -80,12 +80,12 @@ const AllActivityList = (): ReactElement => {
 
 				const matchesMessageType =
 					filtersQuery.messageType === 'all' ||
-					(filtersQuery.messageType === 'mention' && notification.type === 'mention') ||
-					(filtersQuery.messageType === 'highlight' && notification.type === 'highlight') ||
-					(filtersQuery.messageType === 'reaction' && notification.type === 'reaction') ||
-					(filtersQuery.messageType === 'thread' && notification.isThreadReply) ||
-					(filtersQuery.messageType === 'discussion' && (notification.isDiscussion || notification.isDiscussionReply)) ||
-					(filtersQuery.messageType === 'pin' && notification.type === 'pin');
+					(filtersQuery.messageType === 'mention' && notification.kind === 'mention') ||
+					(filtersQuery.messageType === 'highlight' && notification.kind === 'highlight') ||
+					(filtersQuery.messageType === 'reaction' && notification.kind === 'reaction') ||
+					(filtersQuery.messageType === 'thread' && Boolean(notification.message.tmid)) ||
+					(filtersQuery.messageType === 'discussion' && (notification.kind === 'discussion-created' || Boolean(notification.room.prid))) ||
+					(filtersQuery.messageType === 'pin' && notification.kind === 'pin');
 
 				let matchesDate = true;
 				if (filtersQuery.fromDate || filtersQuery.toDate) {
