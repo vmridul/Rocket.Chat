@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactElement } from 'react';
+import type { ComponentProps, MouseEvent, ReactElement } from 'react';
 import { useMemo } from 'react';
 import {
 	Message,
@@ -15,7 +15,7 @@ import {
 	Icon,
 } from '@rocket.chat/fuselage';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter, useUserPreference } from '@rocket.chat/ui-contexts';
+import { useUserPreference } from '@rocket.chat/ui-contexts';
 import { RoomAvatar, UserAvatar } from '@rocket.chat/ui-avatar';
 import { useUserDisplayName } from '@rocket.chat/ui-client';
 import { useTranslation } from 'react-i18next';
@@ -36,9 +36,40 @@ type ActivityItemProps = {
 	onClear: (id: string) => void;
 };
 
+type EditedMessage = {
+	editedAt?: Date;
+};
+
+type IconName = ComponentProps<typeof Icon>['name'];
+
+const getActivityTypeIcon = (notification: ActivityNotification): IconName => {
+	if (notification.type === 'pin') {
+		return 'pin';
+	}
+
+	if (notification.type === 'reaction') {
+		return 'emoji';
+	}
+
+	if (notification.isDiscussion) {
+		return 'discussion';
+	}
+
+	if (notification.type === 'mention' || notification.type === 'highlight') {
+		return 'at';
+	}
+
+	if (notification.isThreadReply) {
+		return 'thread';
+	}
+
+	return 'message';
+};
+
+const hasEditedAt = (message: unknown): message is EditedMessage => Boolean(message && typeof message === 'object' && 'editedAt' in message);
+
 const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps): ReactElement => {
 	const { t } = useTranslation();
-	const router = useRouter();
 	const getMessage = useEndpoint('GET', '/v1/chat.getMessage');
 	const formatTime = useFormatTime();
 	const formatDateAndTime = useFormatDateAndTime();
@@ -106,10 +137,9 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 		[rawHighlights],
 	);
 
-	const messageListContextValue = useMemo(
-		() => ({ ...messageListContextDefaultValue, highlights }),
-		[highlights],
-	);
+	const messageListContextValue = useMemo(() => ({ ...messageListContextDefaultValue, highlights }), [highlights]);
+
+	const activityTypeIcon = getActivityTypeIcon(notification);
 
 	return (
 		<Box>
@@ -125,26 +155,42 @@ const ActivityItem = ({ notification, sequential, onClear }: ActivityItemProps):
 						<MessageHeader>
 							<MessageName>{displayName}</MessageName>
 							<MessageTimestamp title={formatDateAndTime(messageTime)}>{formatTime(messageTime)}</MessageTimestamp>
+							{hasEditedAt(hydratedMessage) && hydratedMessage.editedAt && (
+								<Box
+									is='span'
+									display='inline-flex'
+									alignItems='center'
+									mis={1}
+									color='hint'
+									title={t('Message_has_been_edited_at', { date: formatDateAndTime(hydratedMessage.editedAt) })}
+									style={readMetaTextStyle}
+								>
+									<Icon name='edit' size='x16' />
+								</Box>
+							)}
+							<Box is='span' display='inline-flex' alignItems='center' mis={2} color='hint' style={readMetaTextStyle}>
+								<Icon name={activityTypeIcon} size='x16' />
+							</Box>
 							{notification.roomType === 'd' && !notification.isDiscussion && (
-								<Box is='span' fontScale='c1' mis={6} color='hint' style={readMetaTextStyle}>
+								<Box is='span' fontScale='c1' mis={1} color='hint' style={readMetaTextStyle}>
 									{metaActionTextDm}
 								</Box>
 							)}
 							{(notification.roomType !== 'd' || notification.isDiscussion) && (
-								<Box display='inline-flex' alignItems='center' color='hint' mis={8}>
+								<Box display='inline-flex' alignItems='center' color='hint' mis={2}>
 									<Box is='span' fontScale='c1' mie={6} style={readMetaTextStyle}>
 										{metaActionText}
 									</Box>
 									<RoomAvatar size='x16' room={{ _id: notification.rid, type: notification.roomType || 'c' }} />
 									<Box is='span' fontScale='c1' mis={4} display='inline-flex' alignItems='center' style={readMetaTextStyle}>
-										{notification.type === 'pin' ? (
-											<Icon name='pin' size='x16' mie={4} />
-										) : notification.isDiscussion ? (
-											<Icon name='baloons' size='x16' mie={4} />
+										{notification.isDiscussion ? (
+											<Icon name='baloons' size='x16' mie={1} />
 										) : notification.isTeam ? (
-											<Icon name={notification.roomType === 'p' ? 'team-lock' : 'team'} size='x16' mie={4} />
+											<Icon name={notification.roomType === 'p' ? 'team-lock' : 'team'} size='x16' mie={1} />
 										) : (
-											notification.roomType !== 'd' && <Icon name={notification.roomType === 'p' ? 'hashtag-lock' : 'hash'} size='x16' mie={4} />
+											notification.roomType !== 'd' && (
+												<Icon name={notification.roomType === 'p' ? 'hashtag-lock' : 'hash'} size='x16' mie={1} />
+											)
 										)}
 										{notification.roomName || (notification.roomType === 'd' ? t('Direct_Message') : '')}
 									</Box>
