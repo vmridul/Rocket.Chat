@@ -443,6 +443,10 @@ export class ListenersModule {
 			notifications.notifyUserInThisInstance(uid, 'activity-notification', data);
 		});
 
+		service.onEvent('notify.activity-notification-updated', (uid, data): void => {
+			notifications.notifyUserInThisInstance(uid, 'activity-notification-updated', data);
+		});
+
 		service.onEvent('notify.activity-notification-removed', (uid, data): void => {
 			notifications.notifyUserInThisInstance(uid, 'activity-notification-removed', data);
 		});

@@ -12,10 +12,8 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 	const queryClient = useQueryClient();
 	const queryClientRef = useRef(queryClient);
 	const notifyUserStream = useStream('notify-user');
-	const subscribeToRoomMessages = useStream('room-messages');
 	const subscribeToNotifyUser = useStream('notify-user');
 	const notificationUnsubscribersRef = useRef<Array<() => void>>([]);
-	const roomUnsubscribersRef = useRef<Array<() => void>>([]);
 	const getNotifications = useEndpoint('GET', '/v1/activity-hub.notifications');
 	const deleteNotifications = useEndpoint('POST', '/v1/activity-hub.notifications.delete');
 
@@ -51,23 +49,9 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 		return data?.pages.flatMap((page) => page.notifications) || [];
 	}, [data]);
 
-	const messageIdsByRoom = useMemo(() => {
-		return notifications.reduce((rooms, notification) => {
-			const roomMessageIds = rooms.get(notification.room._id) ?? new Set<string>();
-			roomMessageIds.add(notification.message._id);
-			rooms.set(notification.room._id, roomMessageIds);
-			return rooms;
-		}, new Map<string, Set<string>>());
-	}, [notifications]);
-
 	const cleanupNotificationSubscriptions = useCallback(() => {
 		notificationUnsubscribersRef.current.forEach((unsubscribe) => unsubscribe());
 		notificationUnsubscribersRef.current = [];
-	}, []);
-
-	const cleanupRoomSubscriptions = useCallback(() => {
-		roomUnsubscribersRef.current.forEach((unsubscribe) => unsubscribe());
-		roomUnsubscribersRef.current = [];
 	}, []);
 
 	useEffect(() => {
@@ -87,6 +71,7 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 
 					let found = false;
 					const newPages = oldData.pages.map((page: any, index: number) => {
+						if (found) return page; // Optimization: early return if already found
 						const existingIndex = page.notifications.findIndex((n: any) => n.message._id === notification.message._id);
 						if (existingIndex > -1) {
 							found = true;
@@ -97,7 +82,7 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 						return page;
 					});
 
-					if (!found) {
+					if (!found && newPages.length > 0) {
 						newPages[0] = {
 							...newPages[0],
 							notifications: [notification, ...newPages[0].notifications].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()),
@@ -129,44 +114,39 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 
 		const unsub = notifyUserStream(`${uid}/activity-notification`, handleNotificationEvent);
 		const unsubRemoval = notifyUserStream(`${uid}/activity-notification-removed`, handleRemovalEvent);
-		notificationUnsubscribersRef.current = [unsub, unsubRemoval];
+		const unsubUpdate = notifyUserStream(`${uid}/activity-notification-updated`, ({ messageId }: { messageId: string }) => {
+			void queryClientRef.current.invalidateQueries({
+				queryKey: ['activity-center', 'notification-message', messageId],
+				exact: true,
+			});
+		});
+		notificationUnsubscribersRef.current = [unsub, unsubRemoval, unsubUpdate];
 
 		return cleanupNotificationSubscriptions;
 	}, [uid, filters, searchText, notifyUserStream, cleanupNotificationSubscriptions]);
-
-	useEffect(() => {
-		cleanupRoomSubscriptions();
-
-		if (!uid || messageIdsByRoom.size === 0) {
-			return cleanupRoomSubscriptions;
-		}
-
-		roomUnsubscribersRef.current = [...messageIdsByRoom.entries()].map(([rid, messageIds]) =>
-			subscribeToRoomMessages(rid, (message: any) => {
-				if (!messageIds.has(message._id)) {
-					return;
-				}
-
-				void queryClientRef.current.invalidateQueries({
-					queryKey: ['activity-center', 'notification-message', message._id],
-					exact: true,
-				});
-			})
-		);
-
-		return cleanupRoomSubscriptions;
-	}, [uid, messageIdsByRoom, subscribeToRoomMessages, cleanupRoomSubscriptions]);
 
 	useEffect(() => {
 		if (!uid) {
 			return;
 		}
 
-		return subscribeToNotifyUser(`${uid}/subscriptions-changed`, () => {
-			void queryClientRef.current.invalidateQueries({
-				queryKey: ['activity-notifications', uid],
-			});
+		let debounceTimeout: ReturnType<typeof setTimeout>;
+
+		const unsub = subscribeToNotifyUser(`${uid}/subscriptions-changed`, () => {
+			if (debounceTimeout) {
+				clearTimeout(debounceTimeout);
+			}
+			debounceTimeout = setTimeout(() => {
+				void queryClientRef.current.invalidateQueries({
+					queryKey: ['activity-notifications', uid],
+				});
+			}, 1000); // 1-second debounce for bulk subscription changes
 		});
+
+		return () => {
+			if (debounceTimeout) clearTimeout(debounceTimeout);
+			unsub();
+		};
 	}, [uid, subscribeToNotifyUser]);
 
 	const clearOne = useCallback(

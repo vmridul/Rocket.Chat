@@ -2,7 +2,7 @@ import { api } from '@rocket.chat/core-services';
 import type { IMessage, IRoom, IUser } from '@rocket.chat/core-typings';
 import { Subscriptions, Users } from '@rocket.chat/models';
 
-import { createActivityNotification } from './activityNotifications';
+import { createActivityNotification, updateActivityNotificationText } from './activityNotifications';
 import { ActivityNotificationsCollection, type ActivityNotificationRecord } from '../../collections/activityNotifications';
 import { callbacks } from '../../../../server/lib/callbacks';
 import { settings } from '../../../../app/settings/server';
@@ -96,4 +96,19 @@ callbacks.add(
 	},
 	callbacks.priority.LOW,
 	'activityNotifications.afterPinMessage',
+);
+
+callbacks.add(
+	'afterSaveMessage',
+	async (message: IMessage) => {
+		if (!('editedAt' in message) || !message?._id) {
+			return message;
+		}
+
+		await updateActivityNotificationText({ message });
+
+		return message;
+	},
+	callbacks.priority.LOW,
+	'activityNotifications.afterSaveMessage',
 );

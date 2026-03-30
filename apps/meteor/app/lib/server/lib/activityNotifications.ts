@@ -574,6 +574,28 @@ export const removeActivityNotification = async ({ uid, messageId }: { uid: stri
 	}
 };
 
+export const updateActivityNotificationText = async ({ message }: { message: IMessage }): Promise<void> => {
+	const notifications = await ActivityNotificationsCollection.find({ 'message._id': message._id }).fetchAsync();
+
+	if (notifications.length === 0) {
+		return;
+	}
+
+	const newText = getNotificationPreviewText(message.msg);
+
+	await Promise.all(
+		notifications.map(async (notification) => {
+			if (notification.text !== newText) {
+				await ActivityNotificationsCollection.updateAsync(
+					{ _id: notification._id },
+					{ $set: { text: newText } }
+				);
+			}
+			void api.broadcast('notify.activity-notification-updated', notification.userId, { messageId: message._id });
+		}),
+	);
+};
+
 export type { ActivityNotificationFilter };
 export type { ActivityNotificationMessage, ActivityNotificationRoom, ActivityNotificationSender };
 export type { IMessage, IRoom, IUser };

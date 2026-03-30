@@ -9,7 +9,6 @@ import './oauth/google';
 import './oauth/proxy';
 import './oauth/twitter';
 import './methods/addOAuthService';
-import './methods/activityNotifications';
 import './methods/addUsersToRoom';
 import './methods/addUserToRoom';
 import './methods/archiveRoom';
