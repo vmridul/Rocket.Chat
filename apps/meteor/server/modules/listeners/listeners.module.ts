@@ -439,8 +439,8 @@ export class ListenersModule {
 			notifications.notifyUserInThisInstance(uid, 'calendar', data);
 		});
 
-		service.onEvent('notify.activity-notification', (uid, data): void => {
-			notifications.notifyUserInThisInstance(uid, 'activity-notification', data);
+		service.onEvent('notify.activity-notification-add', (uid, data): void => {
+			notifications.notifyUserInThisInstance(uid, 'activity-notification-add', data);
 		});
 
 		service.onEvent('notify.activity-notification-updated', (uid, data): void => {

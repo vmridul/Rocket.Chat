@@ -115,7 +115,7 @@ export type EventSignatures = {
 	): void;
 	'notify.deleteCustomSound'(data: { soundData: ICustomSound }): void;
 	'notify.updateCustomSound'(data: { soundData: ICustomSound }): void;
-	'notify.activity-notification'(uid: string, data: any): void;
+	'notify.activity-notification-add'(uid: string, data: any): void;
 	'notify.activity-notification-updated'(uid: string, data: { messageId: string }): void;
 	'notify.activity-notification-removed'(uid: string, data: { messageId: string }): void;
 	'notify.calendar'(uid: string, data: ICalendarNotification): void;

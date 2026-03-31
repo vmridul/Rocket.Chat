@@ -347,7 +347,7 @@ const broadcastActivityNotification = async ({ userId, docId }: { userId: string
 		notifications: [notification],
 	});
 
-	void api.broadcast('notify.activity-notification', userId, hydratedNotification ?? notification);
+	void api.broadcast('notify.activity-notification-add', userId, hydratedNotification ?? notification);
 };
 
 // Tell client this item was removed

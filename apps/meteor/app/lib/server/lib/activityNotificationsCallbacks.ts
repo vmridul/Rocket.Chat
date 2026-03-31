@@ -51,9 +51,26 @@ callbacks.add(
 			teamId: getActivityNotificationTeamId(room),
 			forcedType: 'reaction',
 		});
+
+		await updateActivityNotificationText({ message });
 	},
 	callbacks.priority.LOW,
 	'activityNotifications.afterSetReaction',
+);
+
+callbacks.add(
+	'afterUnsetReaction',
+	async (message: IMessage) => {
+		if (!message?._id) {
+			return message;
+		}
+
+		await updateActivityNotificationText({ message });
+
+		return message;
+	},
+	callbacks.priority.LOW,
+	'activityNotifications.afterUnsetReaction',
 );
 
 callbacks.add(

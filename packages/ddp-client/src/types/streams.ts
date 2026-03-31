@@ -184,7 +184,7 @@ export interface StreamerEvents {
 		{ key: `${string}/departmentAgentData`; args: [unknown] },
 		{ key: `${string}/calendar`; args: [ICalendarNotification] },
 		{ key: `${string}/banners`; args: [IBanner] },
-		{ key: `${string}/activity-notification`; args: [unknown] },
+		{ key: `${string}/activity-notification-add`; args: [unknown] },
 		{ key: `${string}/activity-notification-updated`; args: [{ messageId: string }] },
 		{ key: `${string}/activity-notification-removed`; args: [{ messageId: string }] },
 	];

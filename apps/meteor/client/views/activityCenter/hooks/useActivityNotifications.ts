@@ -112,7 +112,7 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 			);
 		};
 
-		const unsub = notifyUserStream(`${uid}/activity-notification`, handleNotificationEvent);
+		const unsub = notifyUserStream(`${uid}/activity-notification-add`, handleNotificationEvent);
 		const unsubRemoval = notifyUserStream(`${uid}/activity-notification-removed`, handleRemovalEvent);
 		const unsubUpdate = notifyUserStream(`${uid}/activity-notification-updated`, ({ messageId }: { messageId: string }) => {
 			void queryClientRef.current.invalidateQueries({
