@@ -72,7 +72,7 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 					let found = false;
 					const newPages = oldData.pages.map((page: any, index: number) => {
 						if (found) return page; // Optimization: early return if already found
-						const existingIndex = page.notifications.findIndex((n: any) => n.message._id === notification.message._id);
+						const existingIndex = page.notifications.findIndex((n: any) => n._id === notification._id);
 						if (existingIndex > -1) {
 							found = true;
 							const newNotifications = [...page.notifications];
@@ -103,9 +103,10 @@ export const useActivityNotifications = (filters: ActivityCenterFiltersQuery, se
 				['activity-notifications', uid, filters, searchText],
 				(oldData: any) => {
 					if (!oldData || !oldData.pages) return oldData;
+					const docId = `${uid}:${messageId}`;
 					const newPages = oldData.pages.map((page: any) => ({
 						...page,
-						notifications: page.notifications.filter((n: any) => n.message._id !== messageId),
+						notifications: page.notifications.filter((n: any) => n._id !== docId),
 					}));
 					return { ...oldData, pages: newPages };
 				}

@@ -2,7 +2,7 @@ import { api } from '@rocket.chat/core-services';
 import type { IMessage, IRoom, IUser } from '@rocket.chat/core-typings';
 import { Subscriptions, Users } from '@rocket.chat/models';
 
-import { createActivityNotification, updateActivityNotificationText } from './activityNotifications';
+import { createActivityNotification, updateActivityNotificationText, removeActivityNotification } from './activityNotifications';
 import { ActivityNotificationsCollection, type ActivityNotificationRecord } from '../../collections/activityNotifications';
 import { callbacks } from '../../../../server/lib/callbacks';
 import { settings } from '../../../../app/settings/server';
@@ -36,7 +36,7 @@ callbacks.add(
 
 callbacks.add(
 	'afterSetReaction',
-	async (message: IMessage, { user, room }: { user: IUser; room: IRoom }) => {
+	async (message: IMessage, { user, reaction, room }: { user: IUser; reaction: string; room: IRoom }) => {
 		if (!message?.u?._id) {
 			return;
 		}
@@ -47,7 +47,8 @@ callbacks.add(
 			room,
 			roomName: room.fname ?? room.name,
 			sender: user,
-			text: 'reaction',
+			text: message.msg,
+			emoji: reaction,
 			teamId: getActivityNotificationTeamId(room),
 			forcedType: 'reaction',
 		});
@@ -60,10 +61,15 @@ callbacks.add(
 
 callbacks.add(
 	'afterUnsetReaction',
-	async (message: IMessage) => {
-		if (!message?._id) {
+	async (message: IMessage, { user, reaction }: { user: IUser; reaction: string }) => {
+		if (!message?._id || !message?.u?._id) {
 			return message;
 		}
+
+		await removeActivityNotification({
+			uid: message.u._id,
+			messageId: `${message._id}:${user.username}:${reaction}`,
+		});
 
 		await updateActivityNotificationText({ message });
 

@@ -131,9 +131,10 @@ const getActivityNotificationContext = async ({
 }) => {
 	let navigationRoom = getNavigationRoom({ room, roomName, teamId });
 	let rootMessage = message as IMessage;
-	let rootMessageId = message.tmid ?? message._id;
+	let rootMessageId = message._id;
 	let kind = baseKind;
 	let threadRootId: string | undefined;
+	let parentMsg: string | undefined;
 
 	// Open the created discussion room
 	if (message.t === 'discussion-created' && rootMessage.drid) {
@@ -174,13 +175,13 @@ const getActivityNotificationContext = async ({
 	const parentMessage = await Messages.findOneById(message.tmid, { projection: { _id: 1, u: 1, msg: 1 } });
 
 	if (parentMessage) {
-		rootMessage = parentMessage;
+		parentMsg = parentMessage.msg;
 	}
 
 	threadRootId = message.tmid;
 	kind = forcedType ?? (baseKind === 'mention' || baseKind === 'highlight' ? baseKind : 'reply');
 
-	return { navigationRoom, rootMessage, rootMessageId, kind, threadRootId };
+	return { navigationRoom, rootMessage, rootMessageId, kind, threadRootId, parentMsg };
 };
 
 // Keep preview text small for list
@@ -195,6 +196,8 @@ const buildActivityNotificationUpdatePayload = ({
 	text,
 	rootMessageText,
 	forcedType,
+	parentMsg,
+	emoji,
 }: {
 	rootMessageId: string;
 	threadRootId?: string;
@@ -203,6 +206,8 @@ const buildActivityNotificationUpdatePayload = ({
 	text?: string;
 	rootMessageText?: string;
 	forcedType?: ActivityNotificationRecord['kind'];
+	parentMsg?: string;
+	emoji?: string;
 }): {
 	$set: {
 		receivedAt?: Date;
@@ -213,6 +218,8 @@ const buildActivityNotificationUpdatePayload = ({
 		room: ActivityNotificationRecord['room'];
 		kind: ActivityNotificationRecord['kind'];
 		text?: string;
+		parentMsg?: string;
+		emoji?: string;
 	};
 } => ({
 	$set: {
@@ -226,6 +233,8 @@ const buildActivityNotificationUpdatePayload = ({
 		...(forcedType && {
 			text: getNotificationPreviewText(text ?? rootMessageText),
 		}),
+		...(parentMsg && { parentMsg: getNotificationPreviewText(parentMsg) }),
+		...(emoji && { emoji }),
 	},
 });
 
@@ -236,20 +245,26 @@ const buildActivityNotificationInsertPayload = ({
 	sender,
 	rootMessage,
 	text,
+	parentMsg,
+	emoji,
 }: {
 	docId: string;
 	userId: string;
 	sender: ActivityNotificationSender;
 	rootMessage: IMessage;
 	text?: string;
+	parentMsg?: string;
+	emoji?: string;
 }) => ({
 	_id: docId,
 	userId,
 	sender: {
-		username: rootMessage.u?.username ?? sender.username,
-		name: rootMessage.u?.name ?? sender.name,
+		username: sender.username ?? rootMessage.u?.username,
+		name: sender.name ?? rootMessage.u?.name,
 	},
 	text: getNotificationPreviewText(rootMessage.msg ?? text),
+	...(parentMsg && { parentMsg: getNotificationPreviewText(parentMsg) }),
+	...(emoji && { emoji }),
 });
 
 // Pick kind from incoming signals
@@ -321,6 +336,12 @@ const writeActivityNotification = async ({
 	const finalInsertPayload = { ...insertPayload };
 	if (updatePayload.$set.text) {
 		delete (finalInsertPayload as any).text;
+	}
+	if (updatePayload.$set.parentMsg) {
+		delete (finalInsertPayload as any).parentMsg;
+	}
+	if (updatePayload.$set.emoji) {
+		delete (finalInsertPayload as any).emoji;
 	}
 
 	await ActivityNotificationsCollection.upsertAsync(
@@ -500,6 +521,7 @@ type CreateActivityNotificationParams = {
 	flags?: ActivityNotificationFlags;
 	teamId?: string;
 	forcedType?: ActivityNotificationRecord['kind'];
+	emoji?: string;
 };
 
 export const createActivityNotification = async ({
@@ -512,6 +534,7 @@ export const createActivityNotification = async ({
 	flags,
 	teamId,
 	forcedType,
+	emoji,
 }: CreateActivityNotificationParams): Promise<void> => {
 	// Normalize flags before kind checks
 	const resolvedFlags = resolveActivityNotificationFlags(flags);
@@ -530,7 +553,7 @@ export const createActivityNotification = async ({
 		forcedType,
 	});
 
-	const docId = `${uid}:${context.rootMessageId}`;
+	const docId = context.kind === 'reaction' ? `${uid}:${context.rootMessageId}:${sender.username}:${emoji}` : `${uid}:${context.rootMessageId}`;
 	// Build the record we persist
 	const updatePayload = buildActivityNotificationUpdatePayload({
 		rootMessageId: context.rootMessageId,
@@ -540,6 +563,8 @@ export const createActivityNotification = async ({
 		text,
 		rootMessageText: context.rootMessage.msg,
 		forcedType,
+		parentMsg: context.parentMsg,
+		emoji,
 	});
 	const insertPayload = buildActivityNotificationInsertPayload({
 		docId,
@@ -547,6 +572,8 @@ export const createActivityNotification = async ({
 		sender,
 		rootMessage: context.rootMessage,
 		text,
+		parentMsg: context.parentMsg,
+		emoji,
 	});
 
 	const wasWritten = await writeActivityNotification({

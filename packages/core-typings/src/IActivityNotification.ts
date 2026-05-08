@@ -18,5 +18,7 @@ export type ActivityNotificationRecord = {
 		name?: string;
 	};
 	text: string;
+	parentMsg?: string;
+	emoji?: string;
 	receivedAt: Date | string;
 };

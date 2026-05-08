@@ -73,6 +73,7 @@ export const useActivityItemViewModel = (notification: ActivityNotification) => 
 			activity: getActivityTypeIcon(notification),
 			room: getActivityRoomIcon(notification),
 		},
+		tmid: hydratedMessage?.tmid,
 		messageListContextValue,
 		formatDateAndTime,
 	};
